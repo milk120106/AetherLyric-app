@@ -29,6 +29,8 @@ internal fun MainGraph.createMainUiActions(): MainUiActions {
         adjustLyricsOffsetForCurrentMedia = lyricsWorkflow::adjustLyricsOffsetForCurrentMedia,
         resetLyricsOffsetForCurrentMedia = lyricsWorkflow::resetLyricsOffsetForCurrentMedia,
         saveLyricsOffsetForCurrentMedia = lyricsWorkflow::saveLyricsOffsetForCurrentMedia,
+        saveLyricsOffsetForSong = lyricsWorkflow::saveLyricsOffsetForSong,
+        saveLyricsOffsetAsGlobal = lyricsWorkflow::saveLyricsOffsetAsGlobal,
         requestOverlayPermission = viewModel::requestOverlayPermission,
         requestNotificationPermission = viewModel::requestNotificationPermission,
         openNotificationListenerSettings = viewModel::openNotificationListenerSettings,

@@ -21,6 +21,10 @@ object LyricsSettingsStore {
     private const val KEY_SWITCH_ANIMATION_MODE = "switch_animation_mode"
     // Persisted compatibility contract. Do not change the serialized value.
     private const val KEY_WORD_BY_WORD_LYRICS_ENABLED = "karaoke_lyrics_enabled"
+    private const val KEY_GENIUS_API_KEY = "genius_api_key"
+    private const val KEY_MUSIXMATCH_API_KEY = "musixmatch_api_key"
+    private const val KEY_COMPACT_MODE = "compact_mode_enabled"
+    private const val KEY_MEDIA_LYRICS_SELECTOR_ENABLED = "media_lyrics_selector_enabled"
 
     private fun store(context: Context) = prefs(context, PREFS_NAME)
 
@@ -142,6 +146,40 @@ object LyricsSettingsStore {
 
     fun setWordByWordLyricsEnabled(context: Context, enabled: Boolean) {
         store(context).setBoolean(KEY_WORD_BY_WORD_LYRICS_ENABLED, enabled)
+    }
+
+    fun getGeniusApiKey(context: Context): String? {
+        val s = store(context).getString(KEY_GENIUS_API_KEY)
+        return if (!s.isNullOrBlank()) s.trim() else null
+    }
+
+    fun setGeniusApiKey(context: Context, key: String?) {
+        store(context).setString(KEY_GENIUS_API_KEY, key?.trim()?.ifBlank { null })
+    }
+
+    fun getMusixmatchApiKey(context: Context): String? {
+        val s = store(context).getString(KEY_MUSIXMATCH_API_KEY)
+        return if (!s.isNullOrBlank()) s.trim() else null
+    }
+
+    fun setMusixmatchApiKey(context: Context, key: String?) {
+        store(context).setString(KEY_MUSIXMATCH_API_KEY, key?.trim()?.ifBlank { null })
+    }
+
+    fun isCompactModeEnabled(context: Context): Boolean {
+        return store(context).getBoolean(KEY_COMPACT_MODE, false)
+    }
+
+    fun setCompactModeEnabled(context: Context, enabled: Boolean) {
+        store(context).setBoolean(KEY_COMPACT_MODE, enabled)
+    }
+
+    fun isMediaLyricsSelectorEnabled(context: Context): Boolean {
+        return store(context).getBoolean(KEY_MEDIA_LYRICS_SELECTOR_ENABLED, false)
+    }
+
+    fun setMediaLyricsSelectorEnabled(context: Context, enabled: Boolean) {
+        store(context).setBoolean(KEY_MEDIA_LYRICS_SELECTOR_ENABLED, enabled)
     }
 
     fun getSettings(context: Context): LyricsSettings {

@@ -133,8 +133,12 @@ internal fun FloatingPageScope.addLyricsDisplaySection(list: LinearLayout) = wit
                             ).show()
                         })
 
-                        addView(actionButton(host, getString(R.string.ui_save_current_offset)) {
-                            saveLyricsOffset(statusText)
+                        addView(actionButton(host, getString(R.string.ui_save_offset_for_song)) {
+                            saveLyricsOffsetForSong(statusText)
+                        })
+
+                        addView(actionButton(host, getString(R.string.ui_save_offset_as_global)) {
+                            saveLyricsOffsetAsGlobal(statusText)
                         })
 
                         addView(actionButton(host, getString(R.string.ui_reset_current_song_offset)) {

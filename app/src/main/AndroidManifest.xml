@@ -1,4 +1,4 @@
-<manifest xmlns:tools="http://schemas.android.com/tools"
+﻿<manifest xmlns:tools="http://schemas.android.com/tools"
     xmlns:android="http://schemas.android.com/apk/res/android">
 
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
@@ -63,6 +63,8 @@
 
         </service>
 
+
+
         <service
             android:name=".media.MediaNotificationListenerService"
             android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE"
@@ -73,6 +75,18 @@
             </intent-filter>
 
         </service>
+
+        <receiver
+            android:name=".external.AetherLyricIntentReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="com.aetherlyric.app.action.SHOW_OVERLAY" />
+                <action android:name="com.aetherlyric.app.action.HIDE_OVERLAY" />
+                <action android:name="com.aetherlyric.app.action.TOGGLE_OVERLAY" />
+                <action android:name="android.intent.action.SEND" />
+                <data android:mimeType="text/plain" />
+            </intent-filter>
+        </receiver>
 
     </application>
 

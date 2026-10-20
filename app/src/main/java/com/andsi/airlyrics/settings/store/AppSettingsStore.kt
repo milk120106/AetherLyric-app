@@ -8,6 +8,8 @@ object AppSettingsStore {
     private const val PREFS_NAME = "app_settings"
     // Keep the original key so upgrades preserve the user's existing preference.
     private const val KEY_STATUS_POPUPS_MUTED = "toaster_muted"
+    private const val KEY_COMPACT_MODE = "compact_mode"
+    private const val KEY_MEDIA_LYRICS_SELECTOR = "media_lyrics_selector"
 
     private fun store(context: Context) = prefs(context, PREFS_NAME)
 
@@ -17,5 +19,21 @@ object AppSettingsStore {
 
     fun setStatusPopupsMuted(context: Context, muted: Boolean) {
         store(context).setBoolean(KEY_STATUS_POPUPS_MUTED, muted)
+    }
+
+    fun isCompactMode(context: Context): Boolean {
+        return store(context).getBoolean(KEY_COMPACT_MODE, false)
+    }
+
+    fun setCompactMode(context: Context, enabled: Boolean) {
+        store(context).setBoolean(KEY_COMPACT_MODE, enabled)
+    }
+
+    fun isMediaLyricsSelectorEnabled(context: Context): Boolean {
+        return store(context).getBoolean(KEY_MEDIA_LYRICS_SELECTOR, true)
+    }
+
+    fun setMediaLyricsSelectorEnabled(context: Context, enabled: Boolean) {
+        store(context).setBoolean(KEY_MEDIA_LYRICS_SELECTOR, enabled)
     }
 }

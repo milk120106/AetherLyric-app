@@ -1,6 +1,7 @@
 package com.andsi.airlyrics.ui.theme
 
 import android.graphics.Color
+import com.andsi.airlyrics.core.color.AirColorUtils
 import com.andsi.airlyrics.core.model.ThemeAccent
 import com.andsi.airlyrics.design.theme.ThemeAccentPalettes
 
@@ -43,13 +44,26 @@ internal object AirLyricsTheme {
         textMuted = Color.rgb(178, 148, 164)
     )
 
-    fun palette(isDark: Boolean, accent: ThemeAccent): AirLyricsPalette {
+    fun palette(
+        isDark: Boolean,
+        accent: ThemeAccent,
+        customPrimary: Int? = null,
+        customBackground: Int? = null
+    ): AirLyricsPalette {
         val base = if (isDark) darkPalette else lightPalette
         val colors = ThemeAccentPalettes.resolve(accent, isDark)
+        val effectiveAccent = customPrimary ?: colors.accent
+        val effectiveBackground = customBackground ?: base.background
+        val effectiveOnAccent = if (customPrimary != null) {
+            if (AirColorUtils.isDarkColor(effectiveAccent)) Color.WHITE else Color.BLACK
+        } else {
+            colors.onAccent
+        }
         return base.copy(
-            accent = colors.accent,
-            onAccent = colors.onAccent,
-            accentLight = colors.accentLight
+            background = effectiveBackground,
+            accent = effectiveAccent,
+            onAccent = effectiveOnAccent,
+            accentLight = customPrimary ?: colors.accentLight
         )
     }
 }

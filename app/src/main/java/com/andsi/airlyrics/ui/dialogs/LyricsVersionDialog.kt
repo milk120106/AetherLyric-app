@@ -4,7 +4,6 @@ import android.app.Dialog
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.view.Gravity
-import android.view.View
 import android.view.ViewGroup
 import android.widget.EditText
 import android.widget.LinearLayout
@@ -34,6 +33,7 @@ import com.andsi.airlyrics.ui.theme.colorTextStrong
 
 /**
  * 歌詞多版本切換與管理對話框。
+ * 支援查看、新增、重新命名、刪除特定版本，並在切換時即時通知懸浮窗更新。
  */
 internal fun showLyricsVersionDialog(
     activity: MainUiHost,
@@ -132,6 +132,23 @@ internal fun showLyricsVersionDialog(
                 }
                 addView(textGroup)
 
+                // 重新命名按鈕
+                val renameIcon = airIconView(R.drawable.ic_air_edit, colorTextMuted, "重新命名版本").apply {
+                    layoutParams = LinearLayout.LayoutParams(
+                        dp(AirUiTokens.Layout.CompactIconButtonSize),
+                        dp(AirUiTokens.Layout.CompactIconButtonSize)
+                    ).apply {
+                        setMargins(0, 0, dp(AirUiTokens.Space.Sm), 0)
+                    }
+                    setOnClickListener {
+                        showRenameVersionDialog(activity, song, version) {
+                            refreshVersionList()
+                            onVersionChanged()
+                        }
+                    }
+                }
+                addView(renameIcon)
+
                 // 刪除按鈕 (保留最後一個版本不可刪除)
                 if (versions.size > 1) {
                     val deleteIcon = airIconView(R.drawable.ic_air_delete, colorDanger, "刪除版本").apply {
@@ -140,10 +157,19 @@ internal fun showLyricsVersionDialog(
                             dp(AirUiTokens.Layout.CompactIconButtonSize)
                         )
                         setOnClickListener {
-                            LyricsVersionStore.deleteVersion(activity, song, version.versionId)
-                            Toast.makeText(activity, "已刪除版本：${version.versionName}", Toast.LENGTH_SHORT).show()
-                            refreshVersionList()
-                            onVersionChanged()
+                            showAirDialog(
+                                title = "刪除歌詞版本",
+                                message = "確定要刪除版本「${version.versionName}」嗎？此動作無法復原。",
+                                positiveText = "刪除",
+                                negativeText = getString(R.string.ui_cancel),
+                                onPositive = {
+                                    LyricsVersionStore.deleteVersion(activity, song, version.versionId)
+                                    Toast.makeText(activity, "已刪除版本：${version.versionName}", Toast.LENGTH_SHORT).show()
+                                    activity.uiActions.reloadFloatingLyrics()
+                                    refreshVersionList()
+                                    onVersionChanged()
+                                }
+                            )
                         }
                     }
                     addView(deleteIcon)
@@ -152,6 +178,7 @@ internal fun showLyricsVersionDialog(
                 setOnClickListener {
                     if (!isActive) {
                         LyricsVersionStore.switchVersion(activity, song, version.versionId)
+                        activity.uiActions.reloadFloatingLyrics()
                         Toast.makeText(activity, "已切換至：${version.versionName}", Toast.LENGTH_SHORT).show()
                         refreshVersionList()
                         onVersionChanged()
@@ -180,6 +207,58 @@ internal fun showLyricsVersionDialog(
                 }
             }
             addView(addBtn)
+        }
+    )
+}
+
+/**
+ * 重新命名版本子彈窗
+ */
+private fun showRenameVersionDialog(
+    activity: MainUiHost,
+    song: SongIdentity,
+    version: LyricsVersion,
+    onRenamed: () -> Unit
+) = with(activity) {
+    lateinit var renameDialog: Dialog
+
+    val nameInput = EditText(activity).apply {
+        setText(version.versionName)
+        setSelection(text.length)
+        textSize = AirUiTokens.TextSize.BodySmall
+        setTextColor(colorTextStrong)
+        setHintTextColor(colorTextMuted)
+        minimumHeight = dp(AirUiTokens.Layout.IconTouchSize)
+        setPadding(
+            dp(AirUiTokens.Space.ButtonH),
+            dp(AirUiTokens.Space.ControlV),
+            dp(AirUiTokens.Space.ButtonH),
+            dp(AirUiTokens.Space.ControlV)
+        )
+        background = GradientDrawable().apply {
+            cornerRadius = dp(AirUiTokens.Radius.Md).toFloat()
+            setColor(colorSurfaceLight)
+            setStroke(dp(AirUiTokens.Stroke.Hairline), colorStroke)
+        }
+        isSingleLine = true
+    }
+
+    renameDialog = showAirDialog(
+        title = "重新命名版本",
+        message = "請輸入新版本名稱：",
+        positiveText = "儲存",
+        negativeText = getString(R.string.ui_cancel),
+        body = {
+            addView(nameInput)
+        },
+        onPositive = {
+            val newName = nameInput.text.toString().trim()
+            if (newName.isNotBlank()) {
+                LyricsVersionStore.renameVersion(activity, song, version.versionId, newName)
+                Toast.makeText(activity, "已重新命名為：$newName", Toast.LENGTH_SHORT).show()
+                onRenamed()
+            }
+            renameDialog.dismiss()
         }
     )
 }
@@ -234,6 +313,7 @@ private fun showAddVersionDialog(
             )
             LyricsVersionStore.addVersion(activity, newVer)
             LyricsVersionStore.switchVersion(activity, song, newVer.versionId)
+            activity.uiActions.reloadFloatingLyrics()
             Toast.makeText(activity, "已建立並切換至：$name", Toast.LENGTH_SHORT).show()
             onAdded()
             addDialog.dismiss()

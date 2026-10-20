@@ -459,4 +459,73 @@
     <string name="ui_version_name_hint">例如：羅馬拼音版、日文翻譯版、AI校正版</string>
     <string name="ui_delete_version">刪除版本</string>
     <string name="ui_version_applied">已切換至版本：%1$s</string>
+    <string name="ui_save_offset_for_song">儲存為單曲偏移量</string>
+    <string name="ui_save_offset_as_global">儲存為全域偏移量 (App 層級)</string>
+    <string name="ui_offset_saved_for_song">已成功儲存單曲專屬偏移量</string>
+    <string name="ui_offset_saved_as_global">已成功儲存全域偏移量並套用</string>
+
+    <string name="ui_server_subpage_title">AetherLyric 伺服器</string>
+    <string name="ui_server_subpage_desc">管理伺服器位址、金鑰、連線狀態與雙引擎模式</string>
+    <string name="ui_sources_subpage_title">歌詞來源管理</string>
+    <string name="ui_sources_subpage_desc">本地與伺服器來源、拖曳排序、勾選與自訂 Key (BYOK)</string>
+    <string name="ui_local_lyrics_subpage_title">本地歌詞管理</string>
+    <string name="ui_local_lyrics_subpage_desc">本地歌詞清單、儲存路徑、匯入匯出與清除快取</string>
+    <string name="ui_external_control_subpage_title">擴充與外部控制</string>
+    <string name="ui_external_control_subpage_desc">App 名單、Intent API 開關與三層權限架構</string>
+    <string name="ui_execution_logs_title">執行日誌</string>
+    <string name="ui_execution_logs_desc">查看本次啟動之關鍵事件、查詢紀錄與 API 狀態</string>
+
+    <string name="ui_compact_mode">簡潔模式</string>
+    <string name="ui_compact_mode_desc">隱藏主設定頁面中的輔助描述文字</string>
+
+    <string name="ui_custom_theme_color">自訂主題顏色</string>
+    <string name="ui_custom_theme_desc">透過 HEX 碼自訂主要強調色 (Primary) 與背景底色 (Background)</string>
+    <string name="ui_primary_color_hex">主要強調色 (HEX)</string>
+    <string name="ui_background_color_hex">背景底色 (HEX)</string>
+    <string name="ui_apply_custom_colors">套用自訂顏色</string>
+    <string name="ui_reset_default_colors">重設為預設主題</string>
+    <string name="ui_custom_colors_applied">已套用自訂顏色主題</string>
+    <string name="ui_custom_colors_reset">已重設為預設顏色主題</string>
+
+    <string name="ui_media_lyrics_selector">媒體首頁歌詞選擇區塊</string>
+    <string name="ui_media_lyrics_selector_desc">在播放頁面直接顯示並快速切換當前歌曲的多個歌詞版本</string>
+    <string name="ui_current_song_versions">可用歌詞版本</string>
+
+    <string name="ui_intent_api_title">Intent 遠端控制 API</string>
+    <string name="ui_intent_api_desc">允許其他應用程式透過標準廣播控制懸浮窗與傳送歌詞</string>
+    <string name="ui_intent_disclaimer_title">Intent API 安全性免責聲明</string>
+    <string name="ui_intent_disclaimer_message">開啟 Intent API 後，同裝置上的其他應用程式將能夠發送指令顯示、隱藏或切換懸浮歌詞窗，並可傳入歌詞內容。\n\n請確保僅授權信任的應用程式進行控制。您是否同意開啟？</string>
+    <string name="ui_intent_enabled">已開啟 Intent API 控制</string>
+    <string name="ui_intent_disabled">已關閉 Intent API 控制</string>
+    <string name="ui_unknown_app_behavior">未知 App 預設行為</string>
+    <string name="ui_behavior_deny">拒絕</string>
+    <string name="ui_behavior_ask">詢問</string>
+    <string name="ui_behavior_allow">允許</string>
+
+    <string name="ui_permission_tier_title">三層權限架構</string>
+    <string name="ui_tier_shizuku_status">Shizuku (無線偵錯)</string>
+    <string name="ui_tier_accessibility_status">無障礙模式</string>
+    <string name="ui_tier_basic_status">基礎模式 (通知與懸浮窗)</string>
+    <string name="ui_open_dev_settings">開發人員選項 (無線偵錯)</string>
+    <string name="ui_open_accessibility_settings">開啟無障礙設定</string>
+    <string name="ui_unlock_restricted_settings">解除「受限制的設定」</string>
+
+    <string name="ui_byok_title">自訂 API 金鑰 (BYOK)</string>
+    <string name="ui_genius_api_key">Genius Client Access Token</string>
+    <string name="ui_musixmatch_api_key">Musixmatch User Token</string>
+    <string name="ui_byok_hint">填入自訂 Key 可解鎖更高配額與穩定性 (選填)</string>
+    <string name="ui_byok_saved">API Key 已儲存</string>
+
+    <string name="ui_export_all_txt">匯出本機歌詞 (TXT)</string>
+    <string name="ui_batch_clean_cache">批次清除暫存快取</string>
+    <string name="ui_batch_cache_cleared">已清理本機快取歌詞</string>
+
+    <string name="ui_logs_search_hint">搜尋 Tag 或訊息關鍵字</string>
+    <string name="ui_logs_auto_scroll">自動滾動</string>
+    <string name="ui_logs_copy_all">複製全部日誌</string>
+    <string name="ui_logs_export_txt">匯出日誌檔案</string>
+    <string name="ui_logs_clear">清除日誌</string>
+    <string name="ui_logs_copied">日誌已複製至剪貼簿</string>
+    <string name="ui_logs_exported">日誌已匯出至：%1$s</string>
+    <string name="ui_logs_empty">目前尚無執行日誌記錄</string>
 </resources>

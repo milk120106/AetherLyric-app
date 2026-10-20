@@ -1,13 +1,21 @@
 package com.andsi.airlyrics.ui.theme
 
+import android.graphics.Color
 import androidx.annotation.ColorInt
 import com.andsi.airlyrics.core.color.AirColorUtils
+import com.andsi.airlyrics.settings.store.ThemeSettingsStore
 import com.andsi.airlyrics.ui.model.MainUiHost
 
 private const val ON_ACCENT_ICON_ALPHA = 204
 
 internal val MainUiHost.airLyricsPalette: AirLyricsPalette
-    get() = AirLyricsTheme.palette(isDarkTheme(), themeAccent())
+    get() {
+        val primaryHex = ThemeSettingsStore.getCustomPrimaryHex(this)
+        val bgHex = ThemeSettingsStore.getCustomBackgroundHex(this)
+        val customPrimary = primaryHex?.let { runCatching { Color.parseColor(it) }.getOrNull() }
+        val customBg = bgHex?.let { runCatching { Color.parseColor(it) }.getOrNull() }
+        return AirLyricsTheme.palette(isDarkTheme(), themeAccent(), customPrimary, customBg)
+    }
 
 internal val MainUiHost.colorBackground: Int
     get() = airLyricsPalette.background

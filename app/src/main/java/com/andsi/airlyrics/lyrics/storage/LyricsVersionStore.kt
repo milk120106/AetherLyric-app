@@ -137,8 +137,8 @@ object LyricsVersionStore {
 
         setActiveVersionId(context, song.storageKey(), versionId)
 
-        // 自動將該版本專屬的時間軸偏移量同步寫入 LyricsOffsetStore
-        LyricsOffsetStore.setOffsetMs(context, song, target.offsetMs)
+        // 自動將該版本專屬的時間軸偏移量同步寫入 LyricsOffsetStore (單曲專屬)
+        LyricsOffsetStore.savePerSongOffset(context, song, target.offsetMs)
 
         // 寫入當前本機歌詞內容
         PlainLyricsStorageOps.savePlainLyrics(
@@ -157,6 +157,20 @@ object LyricsVersionStore {
     /**
      * 新增歌詞版本。
      */
+    /**
+     * 重新命名指定版本。
+     */
+    fun renameVersion(context: Context, song: SongIdentity, versionId: String, newName: String): Boolean {
+        val key = song.storageKey()
+        val all = readAll(context)
+        val index = all.indexOfFirst { it.songKey == key && it.versionId == versionId }
+        if (index == -1) return false
+        val current = all[index]
+        all[index] = current.copy(versionName = newName.trim(), updatedAt = System.currentTimeMillis())
+        writeAll(context, all)
+        return true
+    }
+
     fun addVersion(context: Context, version: LyricsVersion): LyricsVersion {
         val all = readAll(context)
         val newVersion = version.copy(updatedAt = System.currentTimeMillis())

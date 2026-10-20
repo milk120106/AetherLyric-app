@@ -1,4 +1,4 @@
-package com.andsi.airlyrics.app.workflow
+﻿package com.andsi.airlyrics.app.workflow
 
 import com.andsi.airlyrics.app.state.PendingLyricsImport
 import com.andsi.airlyrics.app.state.toBundle
@@ -140,6 +140,27 @@ internal class MainLyricsWorkflow(
         val offset = LyricsOffsetStore.getOffsetMs(activity, media.toSongIdentity())
         val isGlobal = LyricsOffsetStore.isGlobalOffsetEnabled(activity)
         LyricsOffsetStore.saveCurrentOffset(activity, media.toSongIdentity(), offset, isGlobal)
+        graph.floatingController.applyLyricsOffset(offset)
+        return true
+    }
+
+    fun saveLyricsOffsetForSong(): Boolean {
+        val media = graph.viewModel.currentMediaInfo() ?: return false
+        val song = media.toSongIdentity()
+        val offset = LyricsOffsetStore.getOffsetMs(activity, song)
+        LyricsOffsetStore.savePerSongOffset(activity, song, offset)
+        graph.floatingController.applyLyricsOffset(offset)
+        return true
+    }
+
+    fun saveLyricsOffsetAsGlobal(): Boolean {
+        val media = graph.viewModel.currentMediaInfo()
+        val offset = if (media != null) {
+            LyricsOffsetStore.getOffsetMs(activity, media.toSongIdentity())
+        } else {
+            LyricsOffsetStore.getGlobalOffsetMs(activity)
+        }
+        LyricsOffsetStore.saveGlobalOffset(activity, offset)
         graph.floatingController.applyLyricsOffset(offset)
         return true
     }

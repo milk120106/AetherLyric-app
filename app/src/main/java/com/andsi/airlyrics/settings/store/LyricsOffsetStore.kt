@@ -6,8 +6,8 @@ import com.andsi.airlyrics.core.prefs.prefs
 import java.util.Locale
 
 /**
- * Per-song lyric timing offset. The raw lyric files stay untouched; this store only
- * remembers how much the playback position should be shifted when rendering lyrics.
+ * 歌詞時間軸偏移量存儲管理。
+ * 遵循優先級：單曲專屬偏移量 > 全域 (App 層級) 偏移量 > 預設 0。
  */
 object LyricsOffsetStore {
     private const val PREFS_NAME = "lyrics_offset_store"
@@ -41,66 +41,85 @@ object LyricsOffsetStore {
         return safeOffset
     }
 
-    fun saveCurrentOffset(context: Context, identity: SongIdentity, offsetMs: Long, applyToAll: Boolean): Long {
+    /**
+     * 儲存為單曲專屬偏移量。
+     */
+    fun savePerSongOffset(context: Context, identity: SongIdentity, offsetMs: Long): Long {
+        if (identity.title.isBlank()) return offsetMs
         val safeOffset = offsetMs.coerceIn(-MAX_OFFSET_MS, MAX_OFFSET_MS)
-        setGlobalOffsetEnabled(context, applyToAll)
-        if (applyToAll) {
-            setGlobalOffsetMs(context, safeOffset)
-        }
-        if (identity.title.isNotBlank()) {
-            val exactKey = offsetKey(identity)
-            val weakKey = weakOffsetKey(identity)
-            store(context).edit {
-                putLong(exactKey, safeOffset)
-                putLong(weakKey, safeOffset)
-            }
+        val exactKey = offsetKey(identity)
+        val weakKey = weakOffsetKey(identity)
+        store(context).edit {
+            putLong(exactKey, safeOffset)
+            putLong(weakKey, safeOffset)
         }
         return safeOffset
     }
 
+    /**
+     * 儲存為全域 (App 層級) 偏移量，並自動啟用全域開關。
+     */
+    fun saveGlobalOffset(context: Context, offsetMs: Long): Long {
+        val safeOffset = setGlobalOffsetMs(context, offsetMs)
+        setGlobalOffsetEnabled(context, true)
+        return safeOffset
+    }
+
+    fun saveCurrentOffset(context: Context, identity: SongIdentity, offsetMs: Long, applyToAll: Boolean): Long {
+        return if (applyToAll) {
+            saveGlobalOffset(context, offsetMs)
+        } else {
+            savePerSongOffset(context, identity, offsetMs)
+        }
+    }
+
+    /**
+     * 取得目前歌曲應套用之時間軸偏移量。
+     * 優先級：單曲專屬 > 全域 (若啟用) > 預設 0。
+     */
     fun getOffsetMs(context: Context, identity: SongIdentity): Long {
+        if (identity.title.isNotBlank()) {
+            val preferences = store(context)
+            val exactKey = offsetKey(identity)
+            val weakKey = weakOffsetKey(identity)
+
+            if (preferences.contains(exactKey)) {
+                val offset = preferences.getLong(exactKey, 0L)
+                if (!preferences.contains(weakKey)) {
+                    preferences.setLong(weakKey, offset)
+                }
+                return offset
+            }
+
+            nearbyDurationKeys(identity).firstOrNull { preferences.contains(it) }?.let { nearbyKey ->
+                val offset = preferences.getLong(nearbyKey, 0L)
+                preferences.edit {
+                    putLong(exactKey, offset)
+                    putLong(weakKey, offset)
+                }
+                return offset
+            }
+
+            if (preferences.contains(weakKey)) {
+                val offset = preferences.getLong(weakKey, 0L)
+                preferences.setLong(exactKey, offset)
+                return offset
+            }
+
+            findLegacyOffset(preferences, identity, Locale.getDefault())?.let { legacyOffset ->
+                return setOffsetMs(context, identity, legacyOffset)
+            }
+        }
+
+        // 若無單曲專屬偏移量，則檢查是否已啟用全域偏移量
         if (isGlobalOffsetEnabled(context)) {
             return getGlobalOffsetMs(context)
-        }
-        if (identity.title.isBlank()) return 0L
-        val preferences = store(context)
-        val exactKey = offsetKey(identity)
-        val weakKey = weakOffsetKey(identity)
-
-        if (preferences.contains(exactKey)) {
-            val offset = preferences.getLong(exactKey, 0L)
-            if (!preferences.contains(weakKey)) {
-                preferences.setLong(weakKey, offset)
-            }
-            return offset
-        }
-
-        nearbyDurationKeys(identity).firstOrNull { preferences.contains(it) }?.let { nearbyKey ->
-            val offset = preferences.getLong(nearbyKey, 0L)
-            preferences.edit {
-                putLong(exactKey, offset)
-                putLong(weakKey, offset)
-            }
-            return offset
-        }
-
-        if (preferences.contains(weakKey)) {
-            val offset = preferences.getLong(weakKey, 0L)
-            preferences.setLong(exactKey, offset)
-            return offset
-        }
-
-        findLegacyOffset(preferences, identity, Locale.getDefault())?.let { legacyOffset ->
-            return setOffsetMs(context, identity, legacyOffset)
         }
 
         return 0L
     }
 
     fun setOffsetMs(context: Context, identity: SongIdentity, offsetMs: Long): Long {
-        if (isGlobalOffsetEnabled(context)) {
-            return getGlobalOffsetMs(context)
-        }
         if (identity.title.isBlank()) return 0L
         val safeOffset = offsetMs.coerceIn(-MAX_OFFSET_MS, MAX_OFFSET_MS)
         val exactKey = offsetKey(identity)

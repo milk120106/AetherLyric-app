@@ -8,7 +8,7 @@ import com.andsi.airlyrics.ui.model.MainUiHost
 import com.andsi.airlyrics.ui.components.*
 import com.andsi.airlyrics.ui.theme.*
 
-internal fun createMediaPage(activity: MainUiHost, animateContent: Boolean = true): View  = with(activity) createMediaPage@ {
+internal fun createMediaPage(activity: MainUiHost, animateContent: Boolean = true): View = with(activity) createMediaPage@ {
     val container = pageContainer(activity, animateChanges = animateContent)
     val pageState = mediaPageState()
     val controllers = pageState.controllers
@@ -16,46 +16,58 @@ internal fun createMediaPage(activity: MainUiHost, animateContent: Boolean = tru
     val selectedController = pageState.selectedController
     val notificationAccessGranted = hasNotificationListenerAccess()
 
-    container.addView(
-        sectionTitle(activity, 
-            getString(R.string.ui_media),
-            getString(R.string.ui_choose_the_player_airlyrics_follows)
-        )
-    )
+    val heading = sectionTitle(
+        activity, 
+        getString(R.string.ui_media),
+        getString(R.string.ui_choose_the_player_airlyrics_follows)
+    ).apply {
+        setTag(R.id.interaction_anchor, "media.heading")
+    }
+    container.addView(heading)
 
-    container.addView(
-        card(activity) {
-            addView(label(activity, getString(R.string.ui_current_media), colorTextMuted))
-            if (selectedController != null) {
-                val title = pageState.selectedTitle
-                    .orEmpty()
-                    .ifBlank { getString(R.string.ui_unknown_song) }
-                val artist = pageState.selectedArtist
-                    ?: getString(R.string.ui_unknown_artist)
-                val appName = getAppName(selectedController.packageName)
-                val state = getPlaybackStateText(selectedController.playbackState?.state)
+    val currentMediaCard = card(activity) {
+        setTag(R.id.interaction_anchor, "media.current")
+        addView(label(activity, getString(R.string.ui_current_media), colorTextMuted))
+        if (selectedController != null) {
+            val title = pageState.selectedTitle
+                .orEmpty()
+                .ifBlank { getString(R.string.ui_unknown_song) }
+            val artist = pageState.selectedArtist
+                ?: getString(R.string.ui_unknown_artist)
+            val appName = getAppName(selectedController.packageName)
+            val state = getPlaybackStateText(selectedController.playbackState?.state)
 
-                addView(expandableText(bigText(activity, title)))
-                addView(expandableText(normalText(activity, "$artist · $appName")))
-                addView(statusPill(activity, state, selectedController.playbackState?.state == PlaybackState.STATE_PLAYING))
-            } else {
-                addView(bigText(activity, getString(R.string.ui_no_media_detected_yet)))
-                val hintText = getString(
-                    if (notificationAccessGranted) {
-                        R.string.ui_media_streams_empty_hint
-                    } else {
-                        R.string.ui_enable_notif_access_hint
-                    }
-                )
-                addView(normalText(activity, hintText))
-            }
+            addView(expandableText(bigText(activity, title)))
+            addView(expandableText(normalText(activity, "$artist · $appName")))
+            addView(statusPill(activity, state, selectedController.playbackState?.state == PlaybackState.STATE_PLAYING))
+        } else {
+            addView(bigText(activity, getString(R.string.ui_no_media_detected_yet)))
+            val hintText = getString(
+                if (notificationAccessGranted) {
+                    R.string.ui_media_streams_empty_hint
+                } else {
+                    R.string.ui_enable_notif_access_hint
+                }
+            )
+            addView(normalText(activity, hintText))
         }
-    )
+    }
+    container.addView(currentMediaCard)
+
+    // 可用歌詞版本切換區塊
+    createMediaLyricsSelectorCard(activity)?.let { selectorCard ->
+        container.addView(spacer(activity, 12))
+        container.addView(selectorCard)
+    }
 
     container.addView(spacer(activity, 12))
     container.addView(createAudioAiTranscriptionCard(activity))
     container.addView(spacer(activity, 12))
-    container.addView(label(activity, getString(R.string.ui_active_players), colorTextMuted))
+
+    val playersHeading = label(activity, getString(R.string.ui_active_players), colorTextMuted).apply {
+        setTag(R.id.interaction_anchor, "media.players.heading")
+    }
+    container.addView(playersHeading)
 
     if (controllers.isEmpty()) {
         container.addView(
@@ -76,11 +88,10 @@ internal fun createMediaPage(activity: MainUiHost, animateContent: Boolean = tru
     }
 
     container.addView(spacer(activity, 18))
-    container.addView(refreshMediaButton())
+    val refreshBtn = refreshMediaButton().apply {
+        setTag(R.id.interaction_anchor, "media.refresh")
+    }
+    container.addView(refreshBtn)
 
-    container.getChildAt(0).setTag(R.id.interaction_anchor, "media.heading")
-    container.getChildAt(1).setTag(R.id.interaction_anchor, "media.current")
-    container.getChildAt(3).setTag(R.id.interaction_anchor, "media.players.heading")
-    container.getChildAt(container.childCount - 1).setTag(R.id.interaction_anchor, "media.refresh")
     return com.andsi.airlyrics.ui.layout.ResponsivePage(activity, container, setOf(0, 1), "scroll.MEDIA.root")
 }

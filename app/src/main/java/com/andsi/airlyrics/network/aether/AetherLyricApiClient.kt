@@ -421,4 +421,61 @@ object AetherLyricApiClient {
             }
         }
     }
+
+    /**
+     * 呼叫時間軸錨點對齊 API (POST /api/v1/align)。
+     */
+    suspend fun alignLyrics(
+        serverUrl: String,
+        referenceLrc: String,
+        asrSegments: List<Map<String, Any>> = emptyList(),
+        apiKey: String? = null
+    ): Result<String> = withContext(Dispatchers.IO) {
+        runCatching {
+            val base = normalizeUrl(serverUrl)
+            if (base.isEmpty()) throw IllegalArgumentException("伺服器位址不得為空白")
+            val targetUrl = "$base/api/v1/align"
+            val conn = (URL(targetUrl).openConnection() as HttpURLConnection).apply {
+                requestMethod = "POST"
+                connectTimeout = DEFAULT_CONNECT_TIMEOUT_MS
+                readTimeout = DEFAULT_READ_TIMEOUT_MS
+                doOutput = true
+                setRequestProperty("Content-Type", "application/json; charset=utf-8")
+                setRequestProperty("Accept", "application/json")
+                if (!apiKey.isNullOrBlank()) {
+                    setRequestProperty("Authorization", "Bearer ${apiKey.trim()}")
+                }
+            }
+
+            val bodyJson = JSONObject().apply {
+                put("reference_lrc", referenceLrc)
+                val segmentsArray = org.json.JSONArray()
+                asrSegments.forEach { seg ->
+                    segmentsArray.put(JSONObject(seg))
+                }
+                put("asr_segments", segmentsArray)
+                put("min_anchors", 1)
+            }
+
+            OutputStreamWriter(conn.outputStream, StandardCharsets.UTF_8).use {
+                it.write(bodyJson.toString())
+                it.flush()
+            }
+
+            val code = conn.responseCode
+            if (code == HttpURLConnection.HTTP_OK) {
+                val respText = conn.inputStream.bufferedReader(StandardCharsets.UTF_8).use { it.readText() }
+                val json = JSONObject(respText)
+                val output = json.optString("lrc_output")
+                if (output.isNotBlank()) {
+                    com.andsi.airlyrics.logging.AppLogger.i("AetherLyricApiClient", "歌詞時間軸對齊成功 (offset: ${json.optDouble("offset")}s, confidence: ${json.optDouble("confidence")})")
+                    output
+                } else {
+                    throw IllegalStateException("對齊結果為空")
+                }
+            } else {
+                throw IllegalStateException("對齊請求失敗 (HTTP $code)")
+            }
+        }
+    }
 }

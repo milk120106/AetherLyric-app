@@ -29,6 +29,8 @@ internal data class MainUiActions(
     val adjustLyricsOffsetForCurrentMedia: (Long) -> Long?,
     val resetLyricsOffsetForCurrentMedia: () -> Boolean,
     val saveLyricsOffsetForCurrentMedia: () -> Boolean,
+    val saveLyricsOffsetForSong: () -> Boolean,
+    val saveLyricsOffsetAsGlobal: () -> Boolean,
     val requestOverlayPermission: () -> Unit,
     val requestNotificationPermission: () -> Unit,
     val openNotificationListenerSettings: () -> Unit,

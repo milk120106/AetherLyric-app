@@ -10,6 +10,8 @@ object ThemeSettingsStore {
     private const val PREF_NAME = "app_theme"
     private const val KEY_DARK_MODE = "dark_mode"
     private const val KEY_ACCENT = "accent"
+    private const val KEY_CUSTOM_PRIMARY_HEX = "custom_primary_hex"
+    private const val KEY_CUSTOM_BACKGROUND_HEX = "custom_background_hex"
 
     private fun store(context: Context) = prefs(context, PREF_NAME)
 
@@ -42,5 +44,28 @@ object ThemeSettingsStore {
 
     fun setAccent(context: Context, accent: ThemeAccent) {
         store(context).setString(KEY_ACCENT, accent.preferenceValue)
+    }
+
+    fun getCustomPrimaryHex(context: Context): String? {
+        return store(context).getString(KEY_CUSTOM_PRIMARY_HEX, "").takeIf { !it.isNullOrBlank() }
+    }
+
+    fun setCustomPrimaryHex(context: Context, hex: String?) {
+        store(context).setString(KEY_CUSTOM_PRIMARY_HEX, hex.orEmpty())
+    }
+
+    fun getCustomBackgroundHex(context: Context): String? {
+        return store(context).getString(KEY_CUSTOM_BACKGROUND_HEX, "").takeIf { !it.isNullOrBlank() }
+    }
+
+    fun setCustomBackgroundHex(context: Context, hex: String?) {
+        store(context).setString(KEY_CUSTOM_BACKGROUND_HEX, hex.orEmpty())
+    }
+
+    fun clearCustomColors(context: Context) {
+        store(context).edit {
+            remove(KEY_CUSTOM_PRIMARY_HEX)
+            remove(KEY_CUSTOM_BACKGROUND_HEX)
+        }
     }
 }

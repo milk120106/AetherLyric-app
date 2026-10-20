@@ -385,6 +385,26 @@ internal class FloatingPageScope(
         refreshFloatingSettingTiles()
     }
 
+    internal fun saveLyricsOffsetForSong(statusView: TextView?) {
+        if (!host.uiActions.saveLyricsOffsetForSong()) {
+            host.showMessage(R.string.ui_please_play_and_select_a_song_first)
+            return
+        }
+        statusView?.text = host.uiActions.currentLyricsOffsetSummary()
+        refreshFloatingSettingTiles()
+        android.widget.Toast.makeText(host, host.getString(R.string.ui_offset_saved_for_song), android.widget.Toast.LENGTH_SHORT).show()
+    }
+
+    internal fun saveLyricsOffsetAsGlobal(statusView: TextView?) {
+        if (!host.uiActions.saveLyricsOffsetAsGlobal()) {
+            host.showMessage(R.string.ui_please_play_and_select_a_song_first)
+            return
+        }
+        statusView?.text = host.uiActions.currentLyricsOffsetSummary()
+        refreshFloatingSettingTiles()
+        android.widget.Toast.makeText(host, host.getString(R.string.ui_offset_saved_as_global), android.widget.Toast.LENGTH_SHORT).show()
+    }
+
     internal fun saveLyricsOffset(statusView: TextView?) {
         if (!host.uiActions.saveLyricsOffsetForCurrentMedia()) {
             host.showMessage(R.string.ui_please_play_and_select_a_song_first)

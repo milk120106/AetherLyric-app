@@ -460,4 +460,73 @@ Word-timed TTML:
     <string name="ui_version_name_hint">e.g. Romanized, Japanese Trans, AI Verified</string>
     <string name="ui_delete_version">Delete Version</string>
     <string name="ui_version_applied">Version switched: %1$s</string>
+    <string name="ui_save_offset_for_song">Save for current song</string>
+    <string name="ui_save_offset_as_global">Save as global offset</string>
+    <string name="ui_offset_saved_for_song">Per-song offset saved successfully</string>
+    <string name="ui_offset_saved_as_global">Global offset saved and applied</string>
+
+    <string name="ui_server_subpage_title">AetherLyric Server</string>
+    <string name="ui_server_subpage_desc">Manage server URL, admin key, connection and dual-engine mode</string>
+    <string name="ui_sources_subpage_title">Lyrics Sources</string>
+    <string name="ui_sources_subpage_desc">Reorder and toggle sources, bring your own keys (BYOK)</string>
+    <string name="ui_local_lyrics_subpage_title">Local Lyrics</string>
+    <string name="ui_local_lyrics_subpage_desc">Local lyric files, storage directory, import/export and cache cleanup</string>
+    <string name="ui_external_control_subpage_title">Extensions &amp; External Control</string>
+    <string name="ui_external_control_subpage_desc">App rules, Intent API and three-tier permission architecture</string>
+    <string name="ui_execution_logs_title">Execution Logs</string>
+    <string name="ui_execution_logs_desc">View runtime events, lookup traces, and API request status</string>
+
+    <string name="ui_compact_mode">Compact Mode</string>
+    <string name="ui_compact_mode_desc">Hide supplementary explanatory text on main settings page</string>
+
+    <string name="ui_custom_theme_color">Custom Theme Color</string>
+    <string name="ui_custom_theme_desc">Customize Primary and Background colors via HEX codes</string>
+    <string name="ui_primary_color_hex">Primary Color (HEX)</string>
+    <string name="ui_background_color_hex">Background Color (HEX)</string>
+    <string name="ui_apply_custom_colors">Apply Custom Colors</string>
+    <string name="ui_reset_default_colors">Reset to Default Colors</string>
+    <string name="ui_custom_colors_applied">Custom theme colors applied</string>
+    <string name="ui_custom_colors_reset">Theme reset to default</string>
+
+    <string name="ui_media_lyrics_selector">Show lyrics version selector on Media page</string>
+    <string name="ui_media_lyrics_selector_desc">Quickly switch between available lyric versions on the player page</string>
+    <string name="ui_current_song_versions">Available Lyric Versions</string>
+
+    <string name="ui_intent_api_title">Intent Remote API</string>
+    <string name="ui_intent_api_desc">Allow external apps to toggle floating overlay and send lyrics via broadcasts</string>
+    <string name="ui_intent_disclaimer_title">Intent API Security Disclaimer</string>
+    <string name="ui_intent_disclaimer_message">Enabling Intent API allows other applications on this device to send control intents to show/hide overlay or send lyric text.\n\nPlease only authorize trusted apps. Do you want to enable Intent API?</string>
+    <string name="ui_intent_enabled">Intent API enabled</string>
+    <string name="ui_intent_disabled">Intent API disabled</string>
+    <string name="ui_unknown_app_behavior">Default behavior for unknown apps</string>
+    <string name="ui_behavior_deny">Deny</string>
+    <string name="ui_behavior_ask">Ask</string>
+    <string name="ui_behavior_allow">Allow</string>
+
+    <string name="ui_permission_tier_title">Three-Tier Permissions</string>
+    <string name="ui_tier_shizuku_status">Shizuku (Wireless Debugging)</string>
+    <string name="ui_tier_accessibility_status">Accessibility Mode</string>
+    <string name="ui_tier_basic_status">Basic Mode (Notification &amp; Overlay)</string>
+    <string name="ui_open_dev_settings">Developer Options</string>
+    <string name="ui_open_accessibility_settings">Open Accessibility Settings</string>
+    <string name="ui_unlock_restricted_settings">Allow Restricted Settings</string>
+
+    <string name="ui_byok_title">Bring Your Own Key (BYOK)</string>
+    <string name="ui_genius_api_key">Genius Client Access Token</string>
+    <string name="ui_musixmatch_api_key">Musixmatch User Token</string>
+    <string name="ui_byok_hint">Custom keys unlock higher quota and reliability (optional)</string>
+    <string name="ui_byok_saved">API Key saved</string>
+
+    <string name="ui_export_all_txt">Export Local Lyrics (TXT)</string>
+    <string name="ui_batch_clean_cache">Clean Cached Lyrics</string>
+    <string name="ui_batch_cache_cleared">Cached lyrics cleaned</string>
+
+    <string name="ui_logs_search_hint">Search tag or message</string>
+    <string name="ui_logs_auto_scroll">Auto-scroll</string>
+    <string name="ui_logs_copy_all">Copy All Logs</string>
+    <string name="ui_logs_export_txt">Export Log File</string>
+    <string name="ui_logs_clear">Clear Logs</string>
+    <string name="ui_logs_copied">Logs copied to clipboard</string>
+    <string name="ui_logs_exported">Logs exported to: %1$s</string>
+    <string name="ui_logs_empty">No execution logs recorded yet</string>
 </resources>
