@@ -87,6 +87,12 @@ gradle.taskGraph.whenReady {
     }
 }
 
+val appVersionName = "0.1.0"
+
+base {
+    archivesName.set("AetherLyric-v$appVersionName")
+}
+
 android {
     namespace = "com.andsi.airlyrics"
     compileSdk = 37
@@ -99,7 +105,7 @@ android {
         //noinspection OldTargetApi
         targetSdk = 36
         versionCode = 18
-        versionName = "0.1.0"
+        versionName = appVersionName
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
         ndk {

@@ -529,4 +529,18 @@ Word-timed TTML:
     <string name="ui_logs_copied">Logs copied to clipboard</string>
     <string name="ui_logs_exported">Logs exported to: %1$s</string>
     <string name="ui_logs_empty">No execution logs recorded yet</string>
+    <!-- Additional features: Reference lyrics alignment & Video URL input -->
+    <string name="ui_input_reference_lyrics_align">Input Reference Lyrics to Align</string>
+    <string name="ui_reference_lyrics_dialog_title">Align Plain Lyrics with Audio</string>
+    <string name="ui_reference_lyrics_hint">Paste plain lyrics without timestamps to align with audio</string>
+    <string name="ui_start_align">Start Alignment</string>
+    <string name="ui_align_version_name">User Aligned Version</string>
+    <string name="ui_local_align_hint">Server not connected; used local proportional alignment</string>
+    <string name="ui_tab_local_audio">Local Audio</string>
+    <string name="ui_tab_video_url">Video URL</string>
+    <string name="ui_video_url_hint">Enter YouTube or Bilibili video URL</string>
+    <string name="ui_video_url_disabled_hint">Feature not enabled on server (yt-dlp disabled)</string>
+    <string name="ui_download_and_transcribe">Download &amp; Transcribe</string>
+    <string name="ui_video_version_name">Video Transcribed Version</string>
+    <string name="ui_video_parsing">Downloading &amp; transcribing video…</string>
 </resources>

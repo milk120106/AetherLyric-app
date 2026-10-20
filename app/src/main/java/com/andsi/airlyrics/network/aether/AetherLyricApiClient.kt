@@ -25,7 +25,8 @@ data class ServerHealthResponse(
     val version: String,
     val defaultEngine: String,
     val queueLength: Int,
-    val availableModels: List<String>
+    val availableModels: List<String>,
+    val ytdlpEnabled: Boolean = false
 )
 
 /**
@@ -119,7 +120,8 @@ object AetherLyricApiClient {
                     version = json.optString("version", "1.0.0"),
                     defaultEngine = json.optString("default_engine", "local"),
                     queueLength = json.optInt("queue_length", 0),
-                    availableModels = modelsList
+                    availableModels = modelsList,
+                    ytdlpEnabled = json.optBoolean("ytdlp_enabled", false)
                 )
             } else if (code == HttpURLConnection.HTTP_UNAUTHORIZED) {
                 throw IllegalStateException("未授權 (HTTP 401)：請檢查 ADMIN_API_KEY 是否正確")
@@ -193,6 +195,7 @@ object AetherLyricApiClient {
         preferredEngine: String = "groq",
         preferredSource: String = "lrclib",
         enableAiCorrection: Boolean = true,
+        referenceLrc: String? = null,
         apiKey: String? = null
     ): Result<TaskCreateResponse> = withContext(Dispatchers.IO) {
         runCatching {
@@ -209,6 +212,7 @@ object AetherLyricApiClient {
                     preferredEngine = preferredEngine,
                     preferredSource = preferredSource,
                     enableAiCorrection = enableAiCorrection,
+                    referenceLrc = referenceLrc,
                     apiKey = apiKey
                 )
             } else {
@@ -220,6 +224,7 @@ object AetherLyricApiClient {
                     preferredEngine = preferredEngine,
                     preferredSource = preferredSource,
                     enableAiCorrection = enableAiCorrection,
+                    referenceLrc = referenceLrc,
                     apiKey = apiKey
                 )
             }
@@ -233,6 +238,7 @@ object AetherLyricApiClient {
         preferredEngine: String,
         preferredSource: String,
         enableAiCorrection: Boolean,
+        referenceLrc: String?,
         apiKey: String?
     ): TaskCreateResponse {
         val conn = (URL(targetUrl).openConnection() as HttpURLConnection).apply {
@@ -253,6 +259,9 @@ object AetherLyricApiClient {
             put("preferred_engine", preferredEngine)
             put("preferred_lyrics_source", preferredSource)
             put("enable_ai_correction", enableAiCorrection)
+            if (!referenceLrc.isNullOrBlank()) {
+                put("reference_lrc", referenceLrc)
+            }
         }
 
         conn.outputStream.use { os ->
@@ -283,6 +292,7 @@ object AetherLyricApiClient {
         preferredEngine: String,
         preferredSource: String,
         enableAiCorrection: Boolean,
+        referenceLrc: String?,
         apiKey: String?
     ): TaskCreateResponse {
         val boundary = "===AetherLyricBoundary" + System.currentTimeMillis() + "==="
@@ -315,6 +325,7 @@ object AetherLyricApiClient {
                 writeFormField("preferred_engine", preferredEngine)
                 writeFormField("preferred_lyrics_source", preferredSource)
                 writeFormField("enable_ai_correction", enableAiCorrection.toString())
+                if (!referenceLrc.isNullOrEmpty()) writeFormField("reference_lrc", referenceLrc)
 
                 // 檔案區塊
                 writer.append("--$boundary\r\n")
@@ -477,5 +488,99 @@ object AetherLyricApiClient {
                 throw IllegalStateException("對齊請求失敗 (HTTP $code)")
             }
         }
+    }
+
+    /**
+     * 發起影片網址解析與歌詞生成任務 (POST /api/v1/tasks/url)。
+     * 支援 YouTube、Bilibili 等影音網址。
+     */
+    suspend fun createTaskFromUrl(
+        serverUrl: String,
+        videoUrl: String,
+        title: String? = null,
+        artist: String? = null,
+        apiKey: String? = null
+    ): Result<TaskCreateResponse> = withContext(Dispatchers.IO) {
+        runCatching {
+            val base = normalizeUrl(serverUrl)
+            if (base.isEmpty()) throw IllegalArgumentException("伺服器位址不得為空白")
+
+            val targetUrl = "$base/api/v1/tasks/url"
+            val json = JSONObject().apply {
+                put("url", videoUrl.trim())
+                if (!title.isNullOrBlank()) put("track_title", title.trim())
+                if (!artist.isNullOrBlank()) put("artist", artist.trim())
+            }
+
+            fun postJson(urlStr: String): Pair<Int, String> {
+                val conn = (URL(urlStr).openConnection() as HttpURLConnection).apply {
+                    requestMethod = "POST"
+                    connectTimeout = DEFAULT_CONNECT_TIMEOUT_MS
+                    readTimeout = DEFAULT_READ_TIMEOUT_MS
+                    doOutput = true
+                    setRequestProperty("Content-Type", "application/json; charset=UTF-8")
+                    setRequestProperty("Accept", "application/json")
+                    if (!apiKey.isNullOrBlank()) {
+                        setRequestProperty("Authorization", "Bearer ${apiKey.trim()}")
+                    }
+                }
+                conn.outputStream.use { os ->
+                    os.write(json.toString().toByteArray(StandardCharsets.UTF_8))
+                    os.flush()
+                }
+                val code = conn.responseCode
+                val resp = if (code in 200..299) {
+                    conn.inputStream.bufferedReader(StandardCharsets.UTF_8).use { it.readText() }
+                } else {
+                    conn.errorStream?.bufferedReader(StandardCharsets.UTF_8)?.use { it.readText() } ?: ""
+                }
+                return code to resp
+            }
+
+            var (code, respText) = postJson(targetUrl)
+            if (code == HttpURLConnection.HTTP_NOT_FOUND) {
+                // 若伺服器 /tasks/url 不存在，嘗試相容的 /api/v1/tasks
+                val fallbackUrl = "$base/api/v1/tasks"
+                val fallbackRes = postJson(fallbackUrl)
+                code = fallbackRes.first
+                respText = fallbackRes.second
+            }
+
+            if (code == HttpURLConnection.HTTP_ACCEPTED || code == HttpURLConnection.HTTP_OK) {
+                val resJson = JSONObject(respText)
+                TaskCreateResponse(
+                    taskId = resJson.getString("task_id"),
+                    status = resJson.optString("status", "queued"),
+                    message = resJson.optString("message", "Task queued")
+                )
+            } else {
+                throw IllegalStateException("影片解析任務發起失敗 (HTTP $code): $respText")
+            }
+        }
+    }
+
+    /**
+     * 本地簡易時間軸對齊 (備用方案)：
+     * 當伺服器未連線時，根據音訊總時長將純文字歌詞平均分配時間戳。
+     */
+    fun alignPlainLyricsLocally(plainText: String, durationMs: Long): String {
+        val rawLines = plainText.lines().map { it.trim() }.filter { it.isNotEmpty() }
+        if (rawLines.isEmpty()) return ""
+
+        val totalSec = if (durationMs > 1000L) durationMs / 1000.0 else 180.0
+        val startSec = (totalSec * 0.05).coerceAtMost(5.0)
+        val endSec = (totalSec * 0.95).coerceAtLeast(startSec + 1.0)
+        val span = endSec - startSec
+        val step = if (rawLines.size > 1) span / (rawLines.size - 1) else 0.0
+
+        val sb = StringBuilder()
+        rawLines.forEachIndexed { index, line ->
+            val curTimeSec = startSec + index * step
+            val m = (curTimeSec / 60).toInt()
+            val s = curTimeSec % 60
+            val timeTag = String.format(java.util.Locale.US, "[%02d:%05.2f]", m, s)
+            sb.append(timeTag).append(line).append("\n")
+        }
+        return sb.toString().trimEnd()
     }
 }

@@ -2,8 +2,10 @@ package com.andsi.airlyrics.ui.pages.media
 
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
+import android.media.MediaMetadataRetriever
 import android.net.Uri
 import android.provider.OpenableColumns
+import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
 import android.widget.EditText
@@ -26,24 +28,20 @@ import com.andsi.airlyrics.settings.store.AetherLyricServerStore
 import com.andsi.airlyrics.ui.components.actionButton
 import com.andsi.airlyrics.ui.components.bigText
 import com.andsi.airlyrics.ui.components.card
+import com.andsi.airlyrics.ui.components.showAirDialog
 import com.andsi.airlyrics.ui.components.smallHint
 import com.andsi.airlyrics.ui.model.MainUiHost
-import com.andsi.airlyrics.ui.theme.colorAccent
-import com.andsi.airlyrics.ui.theme.colorAccentMint
-import com.andsi.airlyrics.ui.theme.colorDanger
-import com.andsi.airlyrics.ui.theme.colorStroke
-import com.andsi.airlyrics.ui.theme.colorSurfaceLight
-import com.andsi.airlyrics.ui.theme.colorTextMuted
-import com.andsi.airlyrics.ui.theme.colorTextStrong
+import com.andsi.airlyrics.ui.theme.*
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.io.File
 import java.io.FileOutputStream
 
 /**
- * 本地音訊 AI 歌詞辨識卡片。
- * 提供選取本機 MP3/FLAC 等音檔、輸入或微調歌曲資訊，
- * 一鍵上傳至自架 AetherLyric-server 進行 AI 語音轉錄並即時產生同步 LRC 歌詞，附帶進度條與錯誤回饋。
+ * AI 音訊辨識與影音解析卡片 (AudioAiTranscriptionCard)。
+ * 包含：
+ * 1. 分頁 1 (本地音檔辨識)：選取本機音檔上傳至 Server 進行 AI 轉錄，並提供「手動輸入參考歌詞進行對齊」功能。
+ * 2. 分頁 2 (輸入影片網址)：偵測 Server 之 yt-dlp 狀態，支援輸入 YouTube / Bilibili 網址非同步解析並生成 LRC。
  */
 internal fun createAudioAiTranscriptionCard(activity: MainUiHost): View = with(activity) {
     var selectedAudioFile: File? = null
@@ -54,7 +52,89 @@ internal fun createAudioAiTranscriptionCard(activity: MainUiHost): View = with(a
         addView(bigText(activity, getString(R.string.ui_ai_audio_transcription_title)))
         addView(smallHint(activity, getString(R.string.ui_ai_audio_transcription_desc)))
 
-        // 檔案資訊顯示區
+        // 分頁切換列：[本地音檔辨識] / [輸入影片網址]
+        var currentTab = 0 // 0: 本地音檔, 1: 影片網址
+        val tabContainer = LinearLayout(activity).apply {
+            orientation = LinearLayout.HORIZONTAL
+            setPadding(0, dp(AirUiTokens.Space.CardV), 0, dp(AirUiTokens.Space.Sm))
+            layoutParams = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            )
+        }
+
+        val tabLocalButton = TextView(activity).apply {
+            setText(R.string.ui_tab_local_audio)
+            textSize = AirUiTokens.TextSize.Button
+            typeface = Typeface.DEFAULT_BOLD
+            setTextColor(colorOnAccent)
+            gravity = Gravity.CENTER
+            setPadding(dp(AirUiTokens.Space.ButtonH), dp(AirUiTokens.Space.ControlV), dp(AirUiTokens.Space.ButtonH), dp(AirUiTokens.Space.ControlV))
+            background = GradientDrawable().apply {
+                cornerRadius = dp(AirUiTokens.Radius.Md).toFloat()
+                setColor(colorAccent)
+            }
+            layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply {
+                setMargins(0, 0, dp(AirUiTokens.Space.Xs), 0)
+            }
+            isClickable = true
+            isFocusable = true
+        }
+
+        val tabUrlButton = TextView(activity).apply {
+            setText(R.string.ui_tab_video_url)
+            textSize = AirUiTokens.TextSize.Button
+            typeface = Typeface.DEFAULT
+            setTextColor(colorTextStrong)
+            gravity = Gravity.CENTER
+            setPadding(dp(AirUiTokens.Space.ButtonH), dp(AirUiTokens.Space.ControlV), dp(AirUiTokens.Space.ButtonH), dp(AirUiTokens.Space.ControlV))
+            background = GradientDrawable().apply {
+                cornerRadius = dp(AirUiTokens.Radius.Md).toFloat()
+                setColor(colorSurfaceLight)
+                setStroke(dp(AirUiTokens.Stroke.Hairline), colorStroke)
+            }
+            layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply {
+                setMargins(dp(AirUiTokens.Space.Xs), 0, 0, 0)
+            }
+            isClickable = true
+            isFocusable = true
+        }
+
+        tabContainer.addView(tabLocalButton)
+        tabContainer.addView(tabUrlButton)
+        addView(tabContainer)
+
+        // ==================== 進度條與狀態提示文字 (共用) ====================
+        val progressBar = ProgressBar(activity, null, android.R.attr.progressBarStyleHorizontal).apply {
+            isIndeterminate = false
+            max = 100
+            progress = 0
+            visibility = View.GONE
+            layoutParams = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                dp(AirUiTokens.Space.Sm)
+            ).apply {
+                setMargins(0, dp(AirUiTokens.Space.CardV), 0, 0)
+            }
+        }
+        val statusText = TextView(activity).apply {
+            text = ""
+            textSize = AirUiTokens.TextSize.Caption
+            typeface = Typeface.DEFAULT_BOLD
+            setTextColor(colorAccent)
+            visibility = View.GONE
+            setPadding(0, dp(AirUiTokens.Space.Sm), 0, 0)
+        }
+
+        // ==================== 面板 1：本地音檔辨識 ====================
+        val localPanel = LinearLayout(activity).apply {
+            orientation = LinearLayout.VERTICAL
+            layoutParams = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            )
+        }
+
         val fileInfoBox = TextView(activity).apply {
             text = "尚未選取音訊檔案"
             textSize = AirUiTokens.TextSize.BodySmall
@@ -74,18 +154,16 @@ internal fun createAudioAiTranscriptionCard(activity: MainUiHost): View = with(a
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT
             ).apply {
-                setMargins(0, dp(AirUiTokens.Space.CardV), 0, 0)
+                setMargins(0, dp(AirUiTokens.Space.Sm), 0, 0)
             }
         }
-        addView(fileInfoBox)
+        localPanel.addView(fileInfoBox)
 
-        // 歌曲標題輸入框 (選填，輔助校正)
-        val titleInput = EditText(activity).apply {
+        val localTitleInput = EditText(activity).apply {
             hint = "歌曲標題 (選填，可輔助 AI 校正)"
             textSize = AirUiTokens.TextSize.BodySmall
             setTextColor(colorTextStrong)
             setHintTextColor(colorTextMuted)
-            minimumHeight = dp(AirUiTokens.Layout.IconTouchSize)
             setPadding(
                 dp(AirUiTokens.Space.ButtonH),
                 dp(AirUiTokens.Space.ControlV),
@@ -105,15 +183,13 @@ internal fun createAudioAiTranscriptionCard(activity: MainUiHost): View = with(a
             }
             isSingleLine = true
         }
-        addView(titleInput)
+        localPanel.addView(localTitleInput)
 
-        // 歌手名稱輸入框 (選填，輔助校正)
-        val artistInput = EditText(activity).apply {
+        val localArtistInput = EditText(activity).apply {
             hint = "演唱歌手 (選填，可輔助 AI 校正)"
             textSize = AirUiTokens.TextSize.BodySmall
             setTextColor(colorTextStrong)
             setHintTextColor(colorTextMuted)
-            minimumHeight = dp(AirUiTokens.Layout.IconTouchSize)
             setPadding(
                 dp(AirUiTokens.Space.ButtonH),
                 dp(AirUiTokens.Space.ControlV),
@@ -133,34 +209,9 @@ internal fun createAudioAiTranscriptionCard(activity: MainUiHost): View = with(a
             }
             isSingleLine = true
         }
-        addView(artistInput)
+        localPanel.addView(localArtistInput)
 
-        // 進度條與狀態提示文字
-        val progressBar = ProgressBar(activity, null, android.R.attr.progressBarStyleHorizontal).apply {
-            isIndeterminate = false
-            max = 100
-            progress = 0
-            visibility = View.GONE
-            layoutParams = LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                dp(AirUiTokens.Space.Sm)
-            ).apply {
-                setMargins(0, dp(AirUiTokens.Space.CardV), 0, 0)
-            }
-        }
-        addView(progressBar)
-
-        val statusText = TextView(activity).apply {
-            text = ""
-            textSize = AirUiTokens.TextSize.Caption
-            typeface = Typeface.DEFAULT_BOLD
-            setTextColor(colorAccent)
-            visibility = View.GONE
-            setPadding(0, dp(AirUiTokens.Space.Sm), 0, 0)
-        }
-        addView(statusText)
-
-        // SAF 檔案選取回呼
+        // SAF 檔案選取器
         val audioPickerLauncher = activity.activity.activityResultRegistry.register(
             "audio_picker_launcher",
             ActivityResultContracts.GetContent()
@@ -178,7 +229,6 @@ internal fun createAudioAiTranscriptionCard(activity: MainUiHost): View = with(a
                         }
                     }
 
-                    // 複製到快取目錄以供上傳
                     val cacheFile = File(activity.cacheDir, "audio_upload_${System.currentTimeMillis()}_$fileName")
                     activity.contentResolver.openInputStream(uri)?.use { input ->
                         FileOutputStream(cacheFile).use { output ->
@@ -199,26 +249,14 @@ internal fun createAudioAiTranscriptionCard(activity: MainUiHost): View = with(a
         }
 
         // 按鈕：選取音訊檔案
-        val selectButton = actionButton(activity, getString(R.string.ui_select_audio_file)) { }
-        (selectButton.layoutParams as? LinearLayout.LayoutParams)?.setMargins(
-            0,
-            dp(AirUiTokens.Space.CardV),
-            0,
-            0
-        )
-        selectButton.setOnClickListener {
+        val selectButton = actionButton(activity, getString(R.string.ui_select_audio_file)) {
             audioPickerLauncher.launch("audio/*")
         }
-        addView(selectButton)
+        (selectButton.layoutParams as? LinearLayout.LayoutParams)?.setMargins(0, dp(AirUiTokens.Space.CardV), 0, 0)
+        localPanel.addView(selectButton)
 
         // 按鈕：上傳並辨識
         val uploadButton = actionButton(activity, getString(R.string.ui_upload_and_transcribe)) { }
-        (uploadButton.layoutParams as? LinearLayout.LayoutParams)?.setMargins(
-            0,
-            dp(AirUiTokens.Space.Sm),
-            0,
-            0
-        )
         uploadButton.setOnClickListener {
             val file = selectedAudioFile
             if (file == null || !file.exists()) {
@@ -234,8 +272,8 @@ internal fun createAudioAiTranscriptionCard(activity: MainUiHost): View = with(a
                 return@setOnClickListener
             }
 
-            selectedTrackTitle = titleInput.text.toString().trim()
-            selectedTrackArtist = artistInput.text.toString().trim()
+            selectedTrackTitle = localTitleInput.text.toString().trim()
+            selectedTrackArtist = localArtistInput.text.toString().trim()
 
             uploadButton.isEnabled = false
             selectButton.isEnabled = false
@@ -262,7 +300,6 @@ internal fun createAudioAiTranscriptionCard(activity: MainUiHost): View = with(a
                     progressBar.isIndeterminate = false
                     progressBar.progress = 5
 
-                    // 輪詢任務狀態
                     var isDone = false
                     var retryCount = 0
                     while (!isDone && retryCount < 60) {
@@ -278,14 +315,12 @@ internal fun createAudioAiTranscriptionCard(activity: MainUiHost): View = with(a
                             "completed" -> {
                                 isDone = true
                                 progressBar.progress = 100
-                                // 導出生成的 LRC 歌詞
                                 val exportRes = AetherLyricApiClient.exportLyrics(serverUrl, taskId, apiKey = apiKey)
                                 val lrcContent = exportRes.getOrThrow()
 
                                 val title = selectedTrackTitle.ifBlank { file.nameWithoutExtension }
                                 val artist = selectedTrackArtist.ifBlank { "Unknown" }
 
-                                // 儲存至本地歌詞庫
                                 PlainLyricsStorageOps.savePlainLyrics(
                                     context = activity,
                                     title = title,
@@ -296,7 +331,6 @@ internal fun createAudioAiTranscriptionCard(activity: MainUiHost): View = with(a
                                     plainProvider = "AetherLyric AI"
                                 )
 
-                                // 自動同步建立並切換為多版本之一
                                 val songIdent = SongIdentity(title, artist, "", 0L)
                                 val newVer = LyricsVersion(
                                     songKey = songIdent.storageKey(),
@@ -348,6 +382,449 @@ internal fun createAudioAiTranscriptionCard(activity: MainUiHost): View = with(a
                 }
             }
         }
-        addView(uploadButton)
+        (uploadButton.layoutParams as? LinearLayout.LayoutParams)?.setMargins(0, dp(AirUiTokens.Space.Sm), 0, 0)
+        localPanel.addView(uploadButton)
+
+        // 按鈕：輸入參考歌詞進行對齊 (追加入口)
+        val alignReferenceButton = actionButton(activity, getString(R.string.ui_input_reference_lyrics_align)) { }
+        alignReferenceButton.setOnClickListener {
+            // 彈出輸入對話框
+            var dialogInput: EditText? = null
+            showAirDialog(
+                title = getString(R.string.ui_reference_lyrics_dialog_title),
+                message = getString(R.string.ui_reference_lyrics_hint),
+                positiveText = getString(R.string.ui_start_align),
+                negativeText = getString(R.string.ui_cancel),
+                body = {
+                    val filePrompt = TextView(activity).apply {
+                        text = if (selectedAudioFile != null) "已選音檔: ${selectedAudioFile?.name}" else "請先在主卡片選取音訊檔案"
+                        textSize = AirUiTokens.TextSize.Caption
+                        setTextColor(if (selectedAudioFile != null) colorAccentMint else colorDanger)
+                        setPadding(0, 0, 0, dp(AirUiTokens.Space.Sm))
+                    }
+                    addView(filePrompt)
+
+                    dialogInput = EditText(activity).apply {
+                        hint = "請貼上無時間戳的純文字歌詞（一行一句）..."
+                        textSize = AirUiTokens.TextSize.BodySmall
+                        setTextColor(colorTextStrong)
+                        setHintTextColor(colorTextMuted)
+                        minLines = 6
+                        maxLines = 10
+                        gravity = Gravity.TOP or Gravity.START
+                        setPadding(dp(AirUiTokens.Space.CardH), dp(AirUiTokens.Space.CardV), dp(AirUiTokens.Space.CardH), dp(AirUiTokens.Space.CardV))
+                        background = GradientDrawable().apply {
+                            cornerRadius = dp(AirUiTokens.Radius.Md).toFloat()
+                            setColor(colorSurfaceLight)
+                            setStroke(dp(AirUiTokens.Stroke.Hairline), colorStroke)
+                        }
+                    }
+                    addView(dialogInput)
+                },
+                onPositive = {
+                    val plainLyrics = dialogInput?.text?.toString()?.trim().orEmpty()
+                    if (plainLyrics.isBlank()) {
+                        Toast.makeText(activity, "歌詞文字不得為空", Toast.LENGTH_SHORT).show()
+                        return@showAirDialog
+                    }
+
+                    val audioFile = selectedAudioFile
+                    if (audioFile == null || !audioFile.exists()) {
+                        Toast.makeText(activity, "請先選取對應音訊檔案", Toast.LENGTH_SHORT).show()
+                        return@showAirDialog
+                    }
+
+                    val serverUrl = AetherLyricServerStore.getServerUrl(activity)
+                    val apiKey = AetherLyricServerStore.getAdminApiKey(activity)
+                    val serverOnline = AetherLyricServerStore.isServerEnabled(activity) && serverUrl.isNotBlank()
+
+                    val title = localTitleInput.text.toString().trim().ifBlank { audioFile.nameWithoutExtension }
+                    val artist = localArtistInput.text.toString().trim().ifBlank { "Unknown" }
+
+                    statusText.visibility = View.VISIBLE
+                    statusText.text = "正在進行歌詞時間軸對齊..."
+                    statusText.setTextColor(colorAccent)
+                    progressBar.visibility = View.VISIBLE
+                    progressBar.isIndeterminate = true
+
+                    activity.activity.lifecycleScope.launch {
+                        try {
+                            var alignedLrc: String? = null
+
+                            // 1. 若連線 Server，發起參考對齊任務
+                            if (serverOnline) {
+                                AppLogger.i("ReferenceAlign", "發送音訊與參考歌詞至伺服器對齊: ${audioFile.name}")
+                                val taskRes = AetherLyricApiClient.createTask(
+                                    serverUrl = serverUrl,
+                                    audioFile = audioFile,
+                                    title = title,
+                                    artist = artist,
+                                    referenceLrc = plainLyrics,
+                                    apiKey = apiKey
+                                )
+
+                                val taskId = taskRes.getOrThrow().taskId
+                                var retryCount = 0
+                                while (alignedLrc == null && retryCount < 45) {
+                                    delay(2000)
+                                    retryCount++
+                                    val statusRes = AetherLyricApiClient.getTaskStatus(serverUrl, taskId, apiKey)
+                                    val taskInfo = statusRes.getOrNull()
+                                    if (taskInfo?.status == "completed") {
+                                        alignedLrc = AetherLyricApiClient.exportLyrics(serverUrl, taskId, apiKey = apiKey).getOrNull()
+                                    } else if (taskInfo?.status == "failed") {
+                                        break
+                                    }
+                                }
+                            }
+
+                            // 2. 備用方案：若未連線或伺服器失敗，使用本地簡易時間軸對齊
+                            if (alignedLrc.isNullOrBlank()) {
+                                AppLogger.w("ReferenceAlign", "伺服器未連線或對齊失敗，採用本地簡易時間軸對齊")
+                                val retriever = MediaMetadataRetriever()
+                                val durationMs = try {
+                                    retriever.setDataSource(audioFile.absolutePath)
+                                    retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)?.toLongOrNull() ?: 180000L
+                                } catch (_: Exception) {
+                                    180000L
+                                } finally {
+                                    retriever.release()
+                                }
+
+                                alignedLrc = AetherLyricApiClient.alignPlainLyricsLocally(plainLyrics, durationMs)
+                                Toast.makeText(activity, R.string.ui_local_align_hint, Toast.LENGTH_LONG).show()
+                            }
+
+                            // 3. 儲存至本地歌詞庫並建立新版本
+                            PlainLyricsStorageOps.savePlainLyrics(
+                                context = activity,
+                                title = title,
+                                artist = artist,
+                                duration = 0L,
+                                plainLrc = alignedLrc,
+                                plainSource = LyricsStorage.SOURCE_MANUAL_IMPORT,
+                                plainProvider = "Reference Align"
+                            )
+
+                            val songIdent = SongIdentity(title, artist, "", 0L)
+                            val newVer = LyricsVersion(
+                                songKey = songIdent.storageKey(),
+                                versionName = activity.getString(R.string.ui_align_version_name),
+                                lrcContent = alignedLrc,
+                                source = "reference_align"
+                            )
+                            LyricsVersionStore.addVersion(activity, newVer)
+                            LyricsVersionStore.switchVersion(activity, songIdent, newVer.versionId)
+                            activity.uiActions.reloadFloatingLyrics()
+
+                            progressBar.visibility = View.GONE
+                            statusText.text = "對齊完成！已套用「${activity.getString(R.string.ui_align_version_name)}」"
+                            statusText.setTextColor(colorAccentMint)
+                            AppLogger.i("ReferenceAlign", "參考歌詞對齊完成: $title - $artist")
+                            Toast.makeText(activity, "對齊完成，懸浮視窗已同步更新", Toast.LENGTH_SHORT).show()
+                        } catch (e: Exception) {
+                            progressBar.visibility = View.GONE
+                            statusText.text = "對齊失敗：${e.message}"
+                            statusText.setTextColor(colorDanger)
+                            AppLogger.e("ReferenceAlign", "對齊流程異常", e)
+                            Toast.makeText(activity, "對齊失敗：${e.message}", Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                }
+            )
+        }
+        (alignReferenceButton.layoutParams as? LinearLayout.LayoutParams)?.setMargins(0, dp(AirUiTokens.Space.Sm), 0, 0)
+        localPanel.addView(alignReferenceButton)
+
+        addView(localPanel)
+
+        // ==================== 面板 2：輸入影片網址 ====================
+        val urlPanel = LinearLayout(activity).apply {
+            orientation = LinearLayout.VERTICAL
+            visibility = View.GONE
+            layoutParams = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            )
+        }
+
+        val urlWarningHint = TextView(activity).apply {
+            text = ""
+            textSize = AirUiTokens.TextSize.Caption
+            setTextColor(colorDanger)
+            visibility = View.GONE
+            setPadding(0, 0, 0, dp(AirUiTokens.Space.Sm))
+        }
+        urlPanel.addView(urlWarningHint)
+
+        val videoUrlInput = EditText(activity).apply {
+            hint = getString(R.string.ui_video_url_hint)
+            textSize = AirUiTokens.TextSize.BodySmall
+            setTextColor(colorTextStrong)
+            setHintTextColor(colorTextMuted)
+            setPadding(
+                dp(AirUiTokens.Space.ButtonH),
+                dp(AirUiTokens.Space.ControlV),
+                dp(AirUiTokens.Space.ButtonH),
+                dp(AirUiTokens.Space.ControlV)
+            )
+            background = GradientDrawable().apply {
+                cornerRadius = dp(AirUiTokens.Radius.Md).toFloat()
+                setColor(colorSurfaceLight)
+                setStroke(dp(AirUiTokens.Stroke.Hairline), colorStroke)
+            }
+            layoutParams = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            ).apply {
+                setMargins(0, dp(AirUiTokens.Space.Sm), 0, 0)
+            }
+            isSingleLine = true
+        }
+        urlPanel.addView(videoUrlInput)
+
+        val urlTitleInput = EditText(activity).apply {
+            hint = "歌曲標題 (選填)"
+            textSize = AirUiTokens.TextSize.BodySmall
+            setTextColor(colorTextStrong)
+            setHintTextColor(colorTextMuted)
+            setPadding(
+                dp(AirUiTokens.Space.ButtonH),
+                dp(AirUiTokens.Space.ControlV),
+                dp(AirUiTokens.Space.ButtonH),
+                dp(AirUiTokens.Space.ControlV)
+            )
+            background = GradientDrawable().apply {
+                cornerRadius = dp(AirUiTokens.Radius.Md).toFloat()
+                setColor(colorSurfaceLight)
+                setStroke(dp(AirUiTokens.Stroke.Hairline), colorStroke)
+            }
+            layoutParams = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            ).apply {
+                setMargins(0, dp(AirUiTokens.Space.Sm), 0, 0)
+            }
+            isSingleLine = true
+        }
+        urlPanel.addView(urlTitleInput)
+
+        val urlArtistInput = EditText(activity).apply {
+            hint = "歌手名稱 (選填)"
+            textSize = AirUiTokens.TextSize.BodySmall
+            setTextColor(colorTextStrong)
+            setHintTextColor(colorTextMuted)
+            setPadding(
+                dp(AirUiTokens.Space.ButtonH),
+                dp(AirUiTokens.Space.ControlV),
+                dp(AirUiTokens.Space.ButtonH),
+                dp(AirUiTokens.Space.ControlV)
+            )
+            background = GradientDrawable().apply {
+                cornerRadius = dp(AirUiTokens.Radius.Md).toFloat()
+                setColor(colorSurfaceLight)
+                setStroke(dp(AirUiTokens.Stroke.Hairline), colorStroke)
+            }
+            layoutParams = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            ).apply {
+                setMargins(0, dp(AirUiTokens.Space.Sm), 0, 0)
+            }
+            isSingleLine = true
+        }
+        urlPanel.addView(urlArtistInput)
+
+        val downloadUrlButton = actionButton(activity, getString(R.string.ui_download_and_transcribe)) { }
+        downloadUrlButton.setOnClickListener {
+            val url = videoUrlInput.text.toString().trim()
+            if (url.isBlank() || (!url.startsWith("http://") && !url.startsWith("https://"))) {
+                Toast.makeText(activity, "請輸入有效的 HTTP/HTTPS 影片網址", Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
+
+            val serverUrl = AetherLyricServerStore.getServerUrl(activity)
+            val apiKey = AetherLyricServerStore.getAdminApiKey(activity)
+
+            if (serverUrl.isBlank()) {
+                Toast.makeText(activity, "請先至設定頁面設定並驗證 AetherLyric 伺服器", Toast.LENGTH_LONG).show()
+                return@setOnClickListener
+            }
+
+            val title = urlTitleInput.text.toString().trim().ifBlank { "Video_Audio" }
+            val artist = urlArtistInput.text.toString().trim().ifBlank { "WebMedia" }
+
+            progressBar.visibility = View.VISIBLE
+            progressBar.isIndeterminate = true
+            statusText.visibility = View.VISIBLE
+            statusText.text = getString(R.string.ui_video_parsing)
+            statusText.setTextColor(colorAccent)
+
+            activity.activity.lifecycleScope.launch {
+                try {
+                    AppLogger.i("VideoTask", "發起影片網址解析任務: $url")
+                    val createRes = AetherLyricApiClient.createTaskFromUrl(
+                        serverUrl = serverUrl,
+                        videoUrl = url,
+                        title = title,
+                        artist = artist,
+                        apiKey = apiKey
+                    )
+
+                    val taskId = createRes.getOrThrow().taskId
+                    statusText.text = "影片任務已發起 (ID: ${taskId.take(8)}...)，下載與轉錄中..."
+                    progressBar.isIndeterminate = false
+                    progressBar.progress = 10
+
+                    var isDone = false
+                    var retryCount = 0
+                    while (!isDone && retryCount < 60) {
+                        delay(2500)
+                        retryCount++
+                        val statusRes = AetherLyricApiClient.getTaskStatus(serverUrl, taskId, apiKey)
+                        val taskInfo = statusRes.getOrNull()
+                        val status = taskInfo?.status
+                        val curProgress = taskInfo?.progress ?: 0
+                        progressBar.progress = curProgress.coerceIn(10, 95)
+
+                        when (status) {
+                            "completed" -> {
+                                isDone = true
+                                progressBar.progress = 100
+                                val exportRes = AetherLyricApiClient.exportLyrics(serverUrl, taskId, apiKey = apiKey)
+                                val lrcContent = exportRes.getOrThrow()
+
+                                PlainLyricsStorageOps.savePlainLyrics(
+                                    context = activity,
+                                    title = title,
+                                    artist = artist,
+                                    duration = 0L,
+                                    plainLrc = lrcContent,
+                                    plainSource = LyricsStorage.SOURCE_MANUAL_IMPORT,
+                                    plainProvider = "Video URL"
+                                )
+
+                                val songIdent = SongIdentity(title, artist, "", 0L)
+                                val newVer = LyricsVersion(
+                                    songKey = songIdent.storageKey(),
+                                    versionName = activity.getString(R.string.ui_video_version_name),
+                                    lrcContent = lrcContent,
+                                    source = "video_url"
+                                )
+                                LyricsVersionStore.addVersion(activity, newVer)
+                                LyricsVersionStore.switchVersion(activity, songIdent, newVer.versionId)
+                                activity.uiActions.reloadFloatingLyrics()
+
+                                statusText.text = getString(R.string.ui_transcription_success)
+                                statusText.setTextColor(colorAccentMint)
+                                progressBar.visibility = View.GONE
+                                AppLogger.i("VideoTask", "影片歌詞轉錄成功: $title - $artist")
+                                Toast.makeText(activity, "影片歌詞轉錄成功並已套用！", Toast.LENGTH_LONG).show()
+                            }
+                            "failed" -> {
+                                isDone = true
+                                progressBar.visibility = View.GONE
+                                val err = taskInfo?.errorMessage ?: "轉錄失敗"
+                                statusText.text = "影片轉錄失敗: $err"
+                                statusText.setTextColor(colorDanger)
+                                AppLogger.e("VideoTask", "影片解析失敗: $err")
+                                Toast.makeText(activity, "影片轉錄失敗: $err", Toast.LENGTH_LONG).show()
+                            }
+                            else -> {
+                                statusText.text = "影音下載辨識中... (進度: $curProgress%)"
+                            }
+                        }
+                    }
+
+                    if (!isDone) {
+                        progressBar.visibility = View.GONE
+                        statusText.text = "影片處理逾時，請檢查伺服器狀態"
+                        statusText.setTextColor(colorDanger)
+                        AppLogger.w("VideoTask", "影片解析任務超時未完成 (taskId: $taskId)")
+                    }
+                } catch (e: Exception) {
+                    progressBar.visibility = View.GONE
+                    statusText.text = "任務發起失敗: ${e.message}"
+                    statusText.setTextColor(colorDanger)
+                    AppLogger.e("VideoTask", "影片解析發起失敗", e)
+                    Toast.makeText(activity, "影片處理失敗: ${e.message}", Toast.LENGTH_LONG).show()
+                }
+            }
+        }
+        (downloadUrlButton.layoutParams as? LinearLayout.LayoutParams)?.setMargins(0, dp(AirUiTokens.Space.CardV), 0, 0)
+        urlPanel.addView(downloadUrlButton)
+
+        addView(urlPanel)
+
+        // 插入進度條與提示文字在最底端
+        addView(progressBar)
+        addView(statusText)
+
+        // 分頁切換函式與狀態檢測
+        fun checkYtdlpSupport() {
+            val serverUrl = AetherLyricServerStore.getServerUrl(activity)
+            val apiKey = AetherLyricServerStore.getAdminApiKey(activity)
+            if (serverUrl.isBlank()) {
+                videoUrlInput.isEnabled = false
+                downloadUrlButton.isEnabled = false
+                urlWarningHint.visibility = View.VISIBLE
+                urlWarningHint.text = "請先至設定頁面設定並連線 AetherLyric 伺服器"
+                return
+            }
+
+            activity.activity.lifecycleScope.launch {
+                val healthRes = AetherLyricApiClient.testHealth(serverUrl, apiKey)
+                val isYtdlpSupported = healthRes.getOrNull()?.ytdlpEnabled ?: false
+                if (!isYtdlpSupported) {
+                    videoUrlInput.isEnabled = false
+                    downloadUrlButton.isEnabled = false
+                    urlWarningHint.visibility = View.VISIBLE
+                    urlWarningHint.text = activity.getString(R.string.ui_video_url_disabled_hint)
+                } else {
+                    videoUrlInput.isEnabled = true
+                    downloadUrlButton.isEnabled = true
+                    urlWarningHint.visibility = View.GONE
+                }
+            }
+        }
+
+        tabLocalButton.setOnClickListener {
+            if (currentTab != 0) {
+                currentTab = 0
+                tabLocalButton.setTextColor(colorOnAccent)
+                tabLocalButton.background = GradientDrawable().apply {
+                    cornerRadius = dp(AirUiTokens.Radius.Md).toFloat()
+                    setColor(colorAccent)
+                }
+                tabUrlButton.setTextColor(colorTextStrong)
+                tabUrlButton.background = GradientDrawable().apply {
+                    cornerRadius = dp(AirUiTokens.Radius.Md).toFloat()
+                    setColor(colorSurfaceLight)
+                    setStroke(dp(AirUiTokens.Stroke.Hairline), colorStroke)
+                }
+                localPanel.visibility = View.VISIBLE
+                urlPanel.visibility = View.GONE
+            }
+        }
+
+        tabUrlButton.setOnClickListener {
+            if (currentTab != 1) {
+                currentTab = 1
+                tabUrlButton.setTextColor(colorOnAccent)
+                tabUrlButton.background = GradientDrawable().apply {
+                    cornerRadius = dp(AirUiTokens.Radius.Md).toFloat()
+                    setColor(colorAccent)
+                }
+                tabLocalButton.setTextColor(colorTextStrong)
+                tabLocalButton.background = GradientDrawable().apply {
+                    cornerRadius = dp(AirUiTokens.Radius.Md).toFloat()
+                    setColor(colorSurfaceLight)
+                    setStroke(dp(AirUiTokens.Stroke.Hairline), colorStroke)
+                }
+                localPanel.visibility = View.GONE
+                urlPanel.visibility = View.VISIBLE
+                checkYtdlpSupport()
+            }
+        }
     }
 }

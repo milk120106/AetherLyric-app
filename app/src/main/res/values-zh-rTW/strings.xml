@@ -528,4 +528,18 @@
     <string name="ui_logs_copied">日誌已複製至剪貼簿</string>
     <string name="ui_logs_exported">日誌已匯出至：%1$s</string>
     <string name="ui_logs_empty">目前尚無執行日誌記錄</string>
+    <!-- 追加功能：參考歌詞對齊與影片網址輸入 -->
+    <string name="ui_input_reference_lyrics_align">輸入參考歌詞進行對齊</string>
+    <string name="ui_reference_lyrics_dialog_title">輸入參考歌詞進行對齊</string>
+    <string name="ui_reference_lyrics_hint">貼上無時間戳的純文字歌詞，將結合音檔自動校準時間軸</string>
+    <string name="ui_start_align">開始對齊</string>
+    <string name="ui_align_version_name">使用者提供對齊版</string>
+    <string name="ui_local_align_hint">未連線伺服器，已使用本地簡易對齊（平均分配時間戳）</string>
+    <string name="ui_tab_local_audio">本地音檔辨識</string>
+    <string name="ui_tab_video_url">輸入影片網址</string>
+    <string name="ui_video_url_hint">請輸入 YouTube 或 Bilibili 影片網址</string>
+    <string name="ui_video_url_disabled_hint">伺服器未開啟此功能 (yt-dlp 未啟用)</string>
+    <string name="ui_download_and_transcribe">下載並生成歌詞</string>
+    <string name="ui_video_version_name">影片轉錄版</string>
+    <string name="ui_video_parsing">影片下載與 AI 辨識中…</string>
 </resources>
