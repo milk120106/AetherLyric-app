@@ -1,4 +1,4 @@
-﻿<manifest xmlns:tools="http://schemas.android.com/tools"
+<manifest xmlns:tools="http://schemas.android.com/tools"
     xmlns:android="http://schemas.android.com/apk/res/android">
 
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
@@ -22,6 +22,7 @@
             <action android:name="android.intent.action.MAIN" />
             <category android:name="android.intent.category.HOME" />
         </intent>
+            <package android:name="com.deniscerri.ytdlnis" />
     </queries>
 
     <!-- localeConfig is for Android 13+; LanguageSettingsStore and

@@ -1,5 +1,7 @@
 package com.andsi.airlyrics.ui.pages.media
 
+import android.content.Context
+import android.content.Intent
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.media.MediaMetadataRetriever
@@ -754,6 +756,48 @@ internal fun createAudioAiTranscriptionCard(activity: MainUiHost): View = with(a
         (downloadUrlButton.layoutParams as? LinearLayout.LayoutParams)?.setMargins(0, dp(AirUiTokens.Space.CardV), 0, 0)
         urlPanel.addView(downloadUrlButton)
 
+        // 按鈕：使用 YTDLnis 本地下載音訊
+        val ytdlnisButton = actionButton(activity, getString(R.string.ui_ytdlnis_download)) { }
+        ytdlnisButton.setOnClickListener {
+            if (!isYtdlnisInstalled(activity)) {
+                showAirDialog(
+                    title = getString(R.string.ui_ytdlnis_not_installed),
+                    message = getString(R.string.ui_ytdlnis_not_installed_desc),
+                    positiveText = getString(R.string.ui_go_download),
+                    negativeText = getString(R.string.ui_cancel),
+                    onPositive = {
+                        activity.openUrl("https://github.com/deniscerri/ytdlnis/releases")
+                    }
+                )
+                return@setOnClickListener
+            }
+
+            val url = videoUrlInput.text.toString().trim()
+            if (url.isNotBlank()) {
+                try {
+                    val sendIntent = Intent(Intent.ACTION_SEND).apply {
+                        type = "text/plain"
+                        putExtra(Intent.EXTRA_TEXT, url)
+                        setPackage("com.deniscerri.ytdlnis")
+                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    }
+                    activity.startActivity(sendIntent)
+                } catch (e: Exception) {
+                    AppLogger.e("YTDLnis", "調用 YTDLnis 失敗", e)
+                    Toast.makeText(activity, "調用 YTDLnis 失敗: ${e.message}", Toast.LENGTH_SHORT).show()
+                }
+            } else {
+                val launchIntent = activity.packageManager.getLaunchIntentForPackage("com.deniscerri.ytdlnis")
+                if (launchIntent != null) {
+                    activity.startActivity(launchIntent)
+                } else {
+                    Toast.makeText(activity, "請先輸入影片網址", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+        (ytdlnisButton.layoutParams as? LinearLayout.LayoutParams)?.setMargins(0, dp(AirUiTokens.Space.Sm), 0, 0)
+        urlPanel.addView(ytdlnisButton)
+
         addView(urlPanel)
 
         // 插入進度條與提示文字在最底端
@@ -765,10 +809,9 @@ internal fun createAudioAiTranscriptionCard(activity: MainUiHost): View = with(a
             val serverUrl = AetherLyricServerStore.getServerUrl(activity)
             val apiKey = AetherLyricServerStore.getAdminApiKey(activity)
             if (serverUrl.isBlank()) {
-                videoUrlInput.isEnabled = false
                 downloadUrlButton.isEnabled = false
                 urlWarningHint.visibility = View.VISIBLE
-                urlWarningHint.text = "請先至設定頁面設定並連線 AetherLyric 伺服器"
+                urlWarningHint.text = "尚未連線伺服器。若需下載影片音訊，可使用下方 YTDLnis 本地下載"
                 return
             }
 
@@ -776,12 +819,10 @@ internal fun createAudioAiTranscriptionCard(activity: MainUiHost): View = with(a
                 val healthRes = AetherLyricApiClient.testHealth(serverUrl, apiKey)
                 val isYtdlpSupported = healthRes.getOrNull()?.ytdlpEnabled ?: false
                 if (!isYtdlpSupported) {
-                    videoUrlInput.isEnabled = false
                     downloadUrlButton.isEnabled = false
                     urlWarningHint.visibility = View.VISIBLE
                     urlWarningHint.text = activity.getString(R.string.ui_video_url_disabled_hint)
                 } else {
-                    videoUrlInput.isEnabled = true
                     downloadUrlButton.isEnabled = true
                     urlWarningHint.visibility = View.GONE
                 }
@@ -826,5 +867,21 @@ internal fun createAudioAiTranscriptionCard(activity: MainUiHost): View = with(a
                 checkYtdlpSupport()
             }
         }
+    }
+}
+
+/**
+ * 檢查系統是否已安裝 YTDLnis 下載器應用程式。
+ */
+private fun isYtdlnisInstalled(context: Context): Boolean {
+    return try {
+        context.packageManager.getPackageInfo("com.deniscerri.ytdlnis", 0)
+        true
+    } catch (_: Exception) {
+        val sendIntent = Intent(Intent.ACTION_SEND).apply {
+            type = "text/plain"
+            setPackage("com.deniscerri.ytdlnis")
+        }
+        context.packageManager.queryIntentActivities(sendIntent, 0).isNotEmpty()
     }
 }

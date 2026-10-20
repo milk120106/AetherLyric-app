@@ -542,4 +542,19 @@
     <string name="ui_download_and_transcribe">下载并生成歌词</string>
     <string name="ui_video_version_name">视频转录版</string>
     <string name="ui_video_parsing">视频下载与 AI 识别中…</string>
+
+    <!-- 追加功能：多伺服器設定檔與 YTDLnis 整合 -->
+    <string name="ui_server_profiles">服务器配置文件</string>
+    <string name="ui_switch_server_profile">切换配置文件</string>
+    <string name="ui_add_server_profile">新增服务器</string>
+    <string name="ui_profile_name">配置文件名称</string>
+    <string name="ui_profile_name_hint">例如：家庭 NAS、云端服务器</string>
+    <string name="ui_delete_profile">删除此配置文件</string>
+    <string name="ui_ytdlnis_download">使用 YTDLnis 本地下载音频</string>
+    <string name="ui_ytdlnis_not_installed">未安装 YTDLnis</string>
+    <string name="ui_ytdlnis_not_installed_desc">本设备尚未安装开源下载器 YTDLnis。若服务器不支持解析或视频有登录限制，可通过 YTDLnis 本地下载音频后再进行 AI 歌词识别。\n\n是否前往 GitHub 下载安装？</string>
+    <string name="ui_go_download">前往下载</string>
+    <string name="ui_server_public_status">服务器公开状态</string>
+    <string name="ui_server_models">模型：%1$s</string>
+    <string name="ui_server_queue">队列：%1$d 笔</string>
 </resources>

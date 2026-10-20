@@ -543,4 +543,19 @@ Word-timed TTML:
     <string name="ui_download_and_transcribe">Download &amp; Transcribe</string>
     <string name="ui_video_version_name">Video Transcribed Version</string>
     <string name="ui_video_parsing">Downloading &amp; transcribing video…</string>
+
+    <!-- Additional features: Server Profiles & YTDLnis integration -->
+    <string name="ui_server_profiles">Server Profiles</string>
+    <string name="ui_switch_server_profile">Switch Profile</string>
+    <string name="ui_add_server_profile">Add Server</string>
+    <string name="ui_profile_name">Profile Name</string>
+    <string name="ui_profile_name_hint">e.g. Home NAS, Cloud Server</string>
+    <string name="ui_delete_profile">Delete Profile</string>
+    <string name="ui_ytdlnis_download">Download Audio with YTDLnis</string>
+    <string name="ui_ytdlnis_not_installed">YTDLnis Not Installed</string>
+    <string name="ui_ytdlnis_not_installed_desc">YTDLnis downloader is not installed on this device. If the server does not support video downloading or has login restrictions, you can download audio locally via YTDLnis and transcribe it with AI.\n\nOpen GitHub to download?</string>
+    <string name="ui_go_download">Go to Download</string>
+    <string name="ui_server_public_status">Server Public Status</string>
+    <string name="ui_server_models">Models: %1$s</string>
+    <string name="ui_server_queue">Queue: %1$d jobs</string>
 </resources>

@@ -18,35 +18,20 @@ import com.andsi.airlyrics.R
 import com.andsi.airlyrics.design.tokens.AirUiTokens
 import com.andsi.airlyrics.network.aether.AetherLyricApiClient
 import com.andsi.airlyrics.settings.store.AetherLyricServerStore
-import com.andsi.airlyrics.ui.components.actionButton
-import com.andsi.airlyrics.ui.components.bigText
-import com.andsi.airlyrics.ui.components.card
-import com.andsi.airlyrics.ui.components.enableSoftPressFeedback
+import com.andsi.airlyrics.settings.store.ServerProfile
+import com.andsi.airlyrics.ui.components.*
 import com.andsi.airlyrics.ui.model.MainUiHost
-import com.andsi.airlyrics.ui.theme.applyAirThemeTint
-import com.andsi.airlyrics.ui.theme.colorAccent
-import com.andsi.airlyrics.ui.theme.colorAccentLight
-import com.andsi.airlyrics.ui.theme.colorAccentMint
-import com.andsi.airlyrics.ui.theme.colorDanger
-import com.andsi.airlyrics.ui.theme.colorStroke
-import com.andsi.airlyrics.ui.theme.colorSurfaceLight
-import com.andsi.airlyrics.ui.theme.colorTextMuted
-import com.andsi.airlyrics.ui.theme.colorTextStrong
+import com.andsi.airlyrics.ui.theme.*
 import kotlinx.coroutines.launch
 
 /**
  * AetherLyric 伺服器雙引擎設定卡片 (AetherLyricServerCard)。
- * 採用 AirLyrics 原生設計語言與 Token 系統重構，支援深淺色主題無縫適配：
- * - 大圓角卡片 (Radius.Card)
- * - 粗體標題 (Title) 與暗色次要描述 (BodySmall, colorTextMuted)
- * - 原生風格輸入框 (colorSurfaceLight 背景、Hairline colorStroke 細邊框、Radius.Md 圓角)
- * - 原版尺寸規格之測試按鈕 (actionButton)
- * - 柔和非鮮豔之輔助提示文字 (Caption, colorTextMuted / colorAccentMint / colorDanger)
- * - 主題色開關 (SwitchCompat 搭配 applyAirThemeTint，拇指與軌道套用 colorAccent / colorAccentLight)
+ * 支援多伺服器設定檔管理、快速下拉/彈窗切換、自動健康狀態檢測、公開狀態呈現。
+ * App 端無需綁定或輸入任何管理員 API Key。
  */
 internal fun createAetherLyricServerCard(activity: MainUiHost): View = with(activity) {
     return card(activity) {
-        // 1. 卡片標題與描述 (貼合原版字體層級與暗色描述文字)
+        // 1. 卡片標題與描述
         addView(bigText(activity, getString(R.string.ui_aetherlyric_server_title)))
 
         val descView = TextView(activity).apply {
@@ -57,7 +42,68 @@ internal fun createAetherLyricServerCard(activity: MainUiHost): View = with(acti
         }
         addView(descView)
 
-        // 2. 伺服器位址標籤與輸入框
+        var activeProfile = AetherLyricServerStore.getActiveProfile(activity)
+
+        // 2. 伺服器設定檔快速切換列
+        val profileLabel = TextView(activity).apply {
+            text = getString(R.string.ui_server_profiles)
+            textSize = AirUiTokens.TextSize.BodySmall
+            typeface = Typeface.DEFAULT_BOLD
+            setTextColor(colorTextStrong)
+            setPadding(0, dp(AirUiTokens.Space.CardV), 0, dp(AirUiTokens.Space.Sm))
+        }
+        addView(profileLabel)
+
+        // 顯示目前設定檔名稱與位址，點選展開切換彈窗
+        val profileSelectorBox = LinearLayout(activity).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(
+                dp(AirUiTokens.Space.ButtonH),
+                dp(AirUiTokens.Space.ControlV),
+                dp(AirUiTokens.Space.ButtonH),
+                dp(AirUiTokens.Space.ControlV)
+            )
+            background = GradientDrawable().apply {
+                cornerRadius = dp(AirUiTokens.Radius.Md).toFloat()
+                setColor(colorSurfaceLight)
+                setStroke(dp(AirUiTokens.Stroke.Hairline), colorStroke)
+            }
+            layoutParams = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            )
+            isClickable = true
+            isFocusable = true
+            enableSoftPressFeedback(AirUiTokens.Motion.DefaultPressScale)
+        }
+
+        val profileInfoLayout = LinearLayout(activity).apply {
+            orientation = LinearLayout.VERTICAL
+            layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+        }
+        val profileNameView = TextView(activity).apply {
+            text = activeProfile.name
+            textSize = AirUiTokens.TextSize.Button
+            typeface = Typeface.DEFAULT_BOLD
+            setTextColor(colorTextStrong)
+        }
+        val profileUrlSubView = TextView(activity).apply {
+            text = activeProfile.url.ifBlank { "尚未設定伺服器位址" }
+            textSize = AirUiTokens.TextSize.Caption
+            setTextColor(colorTextMuted)
+        }
+        profileInfoLayout.addView(profileNameView)
+        profileInfoLayout.addView(profileUrlSubView)
+        profileSelectorBox.addView(profileInfoLayout)
+
+        val switchIcon = airIconView(R.drawable.ic_air_sync_alt, colorAccent).apply {
+            layoutParams = ViewGroup.LayoutParams(dp(AirUiTokens.Layout.IconSize), dp(AirUiTokens.Layout.IconSize))
+        }
+        profileSelectorBox.addView(switchIcon)
+        addView(profileSelectorBox)
+
+        // 3. 伺服器位址輸入框 (可直接編輯當前設定檔之 URL)
         val urlLabel = TextView(activity).apply {
             text = getString(R.string.ui_server_url_label)
             textSize = AirUiTokens.TextSize.BodySmall
@@ -69,7 +115,7 @@ internal fun createAetherLyricServerCard(activity: MainUiHost): View = with(acti
 
         val urlInput = EditText(activity).apply {
             hint = getString(R.string.ui_server_url_hint)
-            setText(AetherLyricServerStore.getServerUrl(activity))
+            setText(activeProfile.url)
             textSize = AirUiTokens.TextSize.BodySmall
             setTextColor(colorTextStrong)
             setHintTextColor(colorTextMuted)
@@ -91,47 +137,20 @@ internal fun createAetherLyricServerCard(activity: MainUiHost): View = with(acti
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT
             )
+            addTextChangedListener(object : TextWatcher {
+                override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+                override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
+                    val newUrl = s?.toString()?.trim().orEmpty()
+                    activeProfile = activeProfile.copy(url = newUrl)
+                    AetherLyricServerStore.updateProfile(activity, activeProfile)
+                    profileUrlSubView.text = newUrl.ifBlank { "尚未設定伺服器位址" }
+                }
+                override fun afterTextChanged(s: Editable?) {}
+            })
         }
         addView(urlInput)
 
-        // 3. API 金鑰標籤與輸入框 (選填)
-        val apiKeyLabel = TextView(activity).apply {
-            text = getString(R.string.ui_server_api_key_label)
-            textSize = AirUiTokens.TextSize.BodySmall
-            typeface = Typeface.DEFAULT_BOLD
-            setTextColor(colorTextStrong)
-            setPadding(0, dp(AirUiTokens.Space.CardV), 0, dp(AirUiTokens.Space.Sm))
-        }
-        addView(apiKeyLabel)
-
-        val apiKeyInput = EditText(activity).apply {
-            hint = getString(R.string.ui_server_api_key_hint)
-            setText(AetherLyricServerStore.getAdminApiKey(activity))
-            textSize = AirUiTokens.TextSize.BodySmall
-            setTextColor(colorTextStrong)
-            setHintTextColor(colorTextMuted)
-            minimumHeight = dp(AirUiTokens.Layout.IconTouchSize)
-            setPadding(
-                dp(AirUiTokens.Space.ButtonH),
-                dp(AirUiTokens.Space.ControlV),
-                dp(AirUiTokens.Space.ButtonH),
-                dp(AirUiTokens.Space.ControlV)
-            )
-            background = GradientDrawable().apply {
-                cornerRadius = dp(AirUiTokens.Radius.Md).toFloat()
-                setColor(colorSurfaceLight)
-                setStroke(dp(AirUiTokens.Stroke.Hairline), colorStroke)
-            }
-            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD
-            isSingleLine = true
-            layoutParams = LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT
-            )
-        }
-        addView(apiKeyInput)
-
-        // 4. 測試連線按鈕 (原版按鈕樣式與規格)
+        // 4. 測試連線按鈕
         val testButton = actionButton(activity, getString(R.string.ui_test_connection)) { }
         (testButton.layoutParams as? LinearLayout.LayoutParams)?.setMargins(
             0,
@@ -141,62 +160,65 @@ internal fun createAetherLyricServerCard(activity: MainUiHost): View = with(acti
         )
         addView(testButton)
 
-        // 5. 連線狀態指示燈與輔助文字 (使用原生主題色系，不使用高對比鮮豔色)
-        val isVerifiedInitially = AetherLyricServerStore.isConnectionVerified(activity)
-        val isEnabledInitially = AetherLyricServerStore.isServerEnabled(activity)
-
-        val initialDotColor = when {
-            isVerifiedInitially && isEnabledInitially -> colorAccentMint
-            isVerifiedInitially -> colorAccentLight
-            else -> colorTextMuted
-        }
-        val initialTextColor = when {
-            isVerifiedInitially && isEnabledInitially -> colorAccentMint
-            else -> colorTextMuted
-        }
-
-        val statusContainer = LinearLayout(activity).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
-            setPadding(0, dp(AirUiTokens.Space.Xl), 0, 0)
+        // 5. 伺服器公開狀態面板 (即時在線狀態、模型名稱、佇列長度、yt-dlp 支援)
+        val publicStatusCard = LinearLayout(activity).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(
+                dp(AirUiTokens.Space.CardH),
+                dp(AirUiTokens.Space.CardV),
+                dp(AirUiTokens.Space.CardH),
+                dp(AirUiTokens.Space.CardV)
+            )
+            background = GradientDrawable().apply {
+                cornerRadius = dp(AirUiTokens.Radius.Md).toFloat()
+                setColor(colorSurfaceLight)
+                setStroke(dp(AirUiTokens.Stroke.Hairline), colorStroke)
+            }
             layoutParams = LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT
-            )
+            ).apply {
+                setMargins(0, dp(AirUiTokens.Space.CardV), 0, 0)
+            }
         }
 
+        // 狀態頂部行 (指示燈 + 在線狀態)
+        val statusHeaderRow = LinearLayout(activity).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+        }
+
+        val isVerifiedInitially = AetherLyricServerStore.isConnectionVerified(activity)
         val statusDot = View(activity).apply {
             layoutParams = LinearLayout.LayoutParams(dp(8), dp(8)).apply {
-                setMargins(0, 0, dp(AirUiTokens.Space.Sm + AirUiTokens.Space.Xs), 0)
+                setMargins(0, 0, dp(AirUiTokens.Space.Sm), 0)
             }
             background = GradientDrawable().apply {
                 shape = GradientDrawable.OVAL
-                setColor(initialDotColor)
+                setColor(if (isVerifiedInitially) colorAccentMint else colorTextMuted)
             }
         }
-        statusContainer.addView(statusDot)
-
         val statusText = TextView(activity).apply {
-            textSize = AirUiTokens.TextSize.Caption
-            val lastMsg = AetherLyricServerStore.getLastStatusMessage(activity)
-            text = if (lastMsg.isNotEmpty()) {
-                lastMsg
-            } else if (isVerifiedInitially) {
-                getString(R.string.ui_test_connection_success, 0, "online")
-            } else {
-                getString(R.string.ui_server_must_verify_first)
-            }
-            setTextColor(initialTextColor)
-            layoutParams = LinearLayout.LayoutParams(
-                0,
-                ViewGroup.LayoutParams.WRAP_CONTENT,
-                1f
-            )
+            textSize = AirUiTokens.TextSize.BodySmall
+            typeface = Typeface.DEFAULT_BOLD
+            text = if (isVerifiedInitially) "伺服器在線 (已驗證)" else "尚未連線或未驗證"
+            setTextColor(if (isVerifiedInitially) colorAccentMint else colorTextMuted)
         }
-        statusContainer.addView(statusText)
-        addView(statusContainer)
+        statusHeaderRow.addView(statusDot)
+        statusHeaderRow.addView(statusText)
+        publicStatusCard.addView(statusHeaderRow)
 
-        // 6. 細線分隔線 (Hairline Divider)
+        // 詳細公開資訊 (模型、佇列長度、yt-dlp)
+        val publicDetailText = TextView(activity).apply {
+            textSize = AirUiTokens.TextSize.Caption
+            setTextColor(colorTextMuted)
+            setPadding(0, dp(AirUiTokens.Space.Xs), 0, 0)
+            text = AetherLyricServerStore.getLastStatusMessage(activity).ifBlank { "點選「測試連線」以取得最新模型與佇列資訊" }
+        }
+        publicStatusCard.addView(publicDetailText)
+        addView(publicStatusCard)
+
+        // 6. 分隔線
         val divider = View(activity).apply {
             importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
             alpha = 0.6f
@@ -210,7 +232,8 @@ internal fun createAetherLyricServerCard(activity: MainUiHost): View = with(acti
         }
         addView(divider)
 
-        // 7. 雙引擎切換區塊 (Switch Row，包含標題、狀態描述與主題色 Switch)
+        // 7. 雙引擎切換區塊
+        val isEnabledInitially = AetherLyricServerStore.isServerEnabled(activity)
         val engineModeDescription = TextView(activity).apply {
             textSize = AirUiTokens.TextSize.Caption
             setTextColor(colorTextMuted)
@@ -239,7 +262,6 @@ internal fun createAetherLyricServerCard(activity: MainUiHost): View = with(acti
             isClickable = true
             isFocusable = true
             enableSoftPressFeedback(AirUiTokens.Motion.DefaultPressScale)
-            setPadding(0, 0, 0, 0)
             layoutParams = LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT
@@ -268,7 +290,6 @@ internal fun createAetherLyricServerCard(activity: MainUiHost): View = with(acti
         }
         addView(switchRow)
 
-        // 開關變更邏輯
         serverSwitch.setOnCheckedChangeListener { _, isChecked ->
             if (isInternalSwitchUpdating) return@setOnCheckedChangeListener
 
@@ -279,9 +300,6 @@ internal fun createAetherLyricServerCard(activity: MainUiHost): View = with(acti
                     isInternalSwitchUpdating = true
                     serverSwitch.isChecked = false
                     isInternalSwitchUpdating = false
-                    statusText.text = getString(R.string.ui_server_must_verify_first)
-                    statusText.setTextColor(colorTextMuted)
-                    (statusDot.background as? GradientDrawable)?.setColor(colorTextMuted)
                     Toast.makeText(
                         activity,
                         getString(R.string.ui_server_must_verify_first),
@@ -291,15 +309,9 @@ internal fun createAetherLyricServerCard(activity: MainUiHost): View = with(acti
                 }
                 AetherLyricServerStore.setServerEnabled(activity, true)
                 engineModeDescription.text = getString(R.string.ui_server_engine_status_on)
-                (statusDot.background as? GradientDrawable)?.setColor(colorAccentMint)
-                statusText.setTextColor(colorAccentMint)
             } else {
                 AetherLyricServerStore.setServerEnabled(activity, false)
                 engineModeDescription.text = getString(R.string.ui_server_engine_status_off)
-                val verified = AetherLyricServerStore.isConnectionVerified(activity)
-                val dotColor = if (verified) colorAccentLight else colorTextMuted
-                (statusDot.background as? GradientDrawable)?.setColor(dotColor)
-                statusText.setTextColor(colorTextMuted)
             }
         }
 
@@ -307,115 +319,225 @@ internal fun createAetherLyricServerCard(activity: MainUiHost): View = with(acti
             serverSwitch.isChecked = !serverSwitch.isChecked
         }
 
-        // 8. 測試連線按鈕點擊處理
-        testButton.setOnClickListener {
-            val rawUrl = urlInput.text.toString().trim()
-            val rawKey = apiKeyInput.text.toString().trim()
-
-            if (rawUrl.isEmpty()) {
-                statusText.text = getString(R.string.ui_server_must_verify_first)
+        // 連線測試函式 (切換設定檔或點擊測試按鈕時執行)
+        fun performHealthCheck(targetUrl: String, onFinished: (() -> Unit)? = null) {
+            val url = targetUrl.trim()
+            if (url.isEmpty()) {
+                statusText.text = "尚未輸入有效位址"
                 statusText.setTextColor(colorTextMuted)
-                Toast.makeText(
-                    activity,
-                    getString(R.string.ui_server_must_verify_first),
-                    Toast.LENGTH_SHORT
-                ).show()
-                return@setOnClickListener
+                (statusDot.background as? GradientDrawable)?.setColor(colorTextMuted)
+                publicDetailText.text = "請輸入伺服器位址後再進行測試"
+                onFinished?.invoke()
+                return
             }
 
-            testButton.isEnabled = false
-            testButton.text = getString(R.string.ui_testing_connection)
             statusText.text = getString(R.string.ui_testing_connection)
-            statusText.setTextColor(colorTextMuted)
+            statusText.setTextColor(colorAccent)
             (statusDot.background as? GradientDrawable)?.setColor(colorAccent)
+            publicDetailText.text = "正在連線伺服器並查詢服務狀態..."
 
             activity.activity.lifecycleScope.launch {
-                val result = AetherLyricApiClient.testHealth(rawUrl, rawKey)
-                testButton.isEnabled = true
-                testButton.text = getString(R.string.ui_test_connection)
+                val result = AetherLyricApiClient.testHealth(url)
+                onFinished?.invoke()
 
-                result.onSuccess { health ->
-                    AetherLyricServerStore.setServerUrl(activity, rawUrl)
-                    AetherLyricServerStore.setAdminApiKey(activity, rawKey)
-                    AetherLyricServerStore.setConnectionVerified(activity, true)
+                result.fold(
+                    onSuccess = { health ->
+                        AetherLyricServerStore.setConnectionVerified(activity, true)
+                        (statusDot.background as? GradientDrawable)?.setColor(colorAccentMint)
+                        statusText.text = "伺服器在線 (HTTP 200)"
+                        statusText.setTextColor(colorAccentMint)
 
-                    val successMsg = getString(
-                        R.string.ui_test_connection_success,
-                        health.queueLength,
-                        health.defaultEngine
-                    )
-                    AetherLyricServerStore.setLastStatusMessage(activity, successMsg)
+                        val modelStr = health.availableModels.takeIf { it.isNotEmpty() }?.joinToString(", ")
+                            ?: health.defaultEngine
+                        val ytdlpStr = if (health.ytdlpEnabled) "已支援" else "未開啟"
+                        val detailMsg = "引擎/模型: $modelStr · 佇列: ${health.queueLength} 筆 · yt-dlp: $ytdlpStr"
+                        publicDetailText.text = detailMsg
+                        AetherLyricServerStore.setLastStatusMessage(activity, detailMsg)
 
-                    (statusDot.background as? GradientDrawable)?.setColor(colorAccentMint)
-                    statusText.text = successMsg
-                    statusText.setTextColor(colorAccentMint)
+                        Toast.makeText(
+                            activity,
+                            getString(R.string.ui_test_connection_success, health.queueLength, health.defaultEngine),
+                            Toast.LENGTH_SHORT
+                        ).show()
+                    },
+                    onFailure = { err ->
+                        AetherLyricServerStore.setConnectionVerified(activity, false)
+                        (statusDot.background as? GradientDrawable)?.setColor(colorDanger)
+                        statusText.text = "連線失敗"
+                        statusText.setTextColor(colorDanger)
+                        val errMsg = "錯誤: ${err.message ?: "無法連接到伺服器"}"
+                        publicDetailText.text = errMsg
+                        AetherLyricServerStore.setLastStatusMessage(activity, errMsg)
 
-                    Toast.makeText(activity, "伺服器連線成功！", Toast.LENGTH_SHORT).show()
-                }.onFailure { exc ->
-                    AetherLyricServerStore.setConnectionVerified(activity, false)
-                    AetherLyricServerStore.setServerEnabled(activity, false)
+                        if (serverSwitch.isChecked) {
+                            isInternalSwitchUpdating = true
+                            serverSwitch.isChecked = false
+                            isInternalSwitchUpdating = false
+                            AetherLyricServerStore.setServerEnabled(activity, false)
+                            engineModeDescription.text = getString(R.string.ui_server_engine_status_off)
+                        }
 
-                    val errorMsg = getString(
-                        R.string.ui_test_connection_failed,
-                        exc.message ?: "連線逾時"
-                    )
-                    AetherLyricServerStore.setLastStatusMessage(activity, errorMsg)
-
-                    (statusDot.background as? GradientDrawable)?.setColor(colorDanger)
-                    statusText.text = errorMsg
-                    statusText.setTextColor(colorDanger)
-
-                    isInternalSwitchUpdating = true
-                    serverSwitch.isChecked = false
-                    isInternalSwitchUpdating = false
-                    engineModeDescription.text = getString(R.string.ui_server_engine_status_off)
-
-                    Toast.makeText(activity, errorMsg, Toast.LENGTH_LONG).show()
-                }
+                        Toast.makeText(activity, "伺服器連線失敗：${err.message}", Toast.LENGTH_LONG).show()
+                    }
+                )
             }
         }
 
-        // 9. 監聽輸入框異動，位址變更時重設驗證狀態
-        urlInput.addTextChangedListener(object : TextWatcher {
-            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
-            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
-                val newUrl = s?.toString()?.trim().orEmpty()
-                if (newUrl != AetherLyricServerStore.getServerUrl(activity)) {
-                    AetherLyricServerStore.setConnectionVerified(activity, false)
-                    (statusDot.background as? GradientDrawable)?.setColor(colorTextMuted)
-                    statusText.text = getString(R.string.ui_server_must_verify_first)
-                    statusText.setTextColor(colorTextMuted)
-                    if (serverSwitch.isChecked) {
-                        isInternalSwitchUpdating = true
-                        serverSwitch.isChecked = false
-                        isInternalSwitchUpdating = false
-                        AetherLyricServerStore.setServerEnabled(activity, false)
-                        engineModeDescription.text = getString(R.string.ui_server_engine_status_off)
-                    }
-                }
+        testButton.setOnClickListener {
+            val rawUrl = urlInput.text.toString().trim()
+            testButton.isEnabled = false
+            testButton.text = getString(R.string.ui_testing_connection)
+            performHealthCheck(rawUrl) {
+                testButton.isEnabled = true
+                testButton.text = getString(R.string.ui_test_connection)
             }
-            override fun afterTextChanged(s: Editable?) {}
-        })
+        }
 
-        apiKeyInput.addTextChangedListener(object : TextWatcher {
-            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
-            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
-                val newKey = s?.toString()?.trim().orEmpty()
-                if (newKey != AetherLyricServerStore.getAdminApiKey(activity)) {
-                    AetherLyricServerStore.setConnectionVerified(activity, false)
-                    (statusDot.background as? GradientDrawable)?.setColor(colorTextMuted)
-                    statusText.text = getString(R.string.ui_server_must_verify_first)
-                    statusText.setTextColor(colorTextMuted)
-                    if (serverSwitch.isChecked) {
-                        isInternalSwitchUpdating = true
-                        serverSwitch.isChecked = false
-                        isInternalSwitchUpdating = false
-                        AetherLyricServerStore.setServerEnabled(activity, false)
-                        engineModeDescription.text = getString(R.string.ui_server_engine_status_off)
+        // 點擊展開「伺服器設定檔管理」彈窗
+        profileSelectorBox.setOnClickListener {
+            val profiles = AetherLyricServerStore.getProfiles(activity)
+            showAirDialog(
+                title = getString(R.string.ui_switch_server_profile),
+                message = "選擇要連線的自架伺服器，或新增與管理設定檔",
+                positiveText = getString(R.string.ui_add_server_profile),
+                negativeText = getString(R.string.ui_cancel),
+                body = {
+                    val currentActiveId = AetherLyricServerStore.getActiveProfile(activity).id
+                    profiles.forEach { profile ->
+                        val isSelected = profile.id == currentActiveId
+                        val row = LinearLayout(activity).apply {
+                            orientation = LinearLayout.HORIZONTAL
+                            gravity = Gravity.CENTER_VERTICAL
+                            setPadding(
+                                dp(AirUiTokens.Space.CardH),
+                                dp(AirUiTokens.Space.CardV),
+                                dp(AirUiTokens.Space.CardH),
+                                dp(AirUiTokens.Space.CardV)
+                            )
+                            background = GradientDrawable().apply {
+                                cornerRadius = dp(AirUiTokens.Radius.Md).toFloat()
+                                setColor(if (isSelected) colorAccent else colorSurfaceLight)
+                                setStroke(dp(AirUiTokens.Stroke.Hairline), if (isSelected) colorAccent else colorStroke)
+                            }
+                            layoutParams = LinearLayout.LayoutParams(
+                                ViewGroup.LayoutParams.MATCH_PARENT,
+                                ViewGroup.LayoutParams.WRAP_CONTENT
+                            ).apply {
+                                setMargins(0, 0, 0, dp(AirUiTokens.Space.Sm))
+                            }
+                            isClickable = true
+                            isFocusable = true
+                            enableSoftPressFeedback(AirUiTokens.Motion.DefaultPressScale)
+
+                            val textCol = LinearLayout(activity).apply {
+                                orientation = LinearLayout.VERTICAL
+                                layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+                                addView(TextView(activity).apply {
+                                    text = profile.name
+                                    textSize = AirUiTokens.TextSize.Button
+                                    typeface = if (isSelected) Typeface.DEFAULT_BOLD else Typeface.DEFAULT
+                                    setTextColor(if (isSelected) colorOnAccent else colorTextStrong)
+                                })
+                                addView(TextView(activity).apply {
+                                    text = profile.url
+                                    textSize = AirUiTokens.TextSize.Caption
+                                    setTextColor(if (isSelected) colorOnAccent else colorTextMuted)
+                                })
+                            }
+                            addView(textCol)
+
+                            // 刪除按鈕 (僅在設定檔數量 > 1 時允許刪除)
+                            if (profiles.size > 1) {
+                                val deleteBtn = airIconView(R.drawable.ic_air_delete, if (isSelected) colorOnAccent else colorDanger).apply {
+                                    layoutParams = ViewGroup.LayoutParams(dp(AirUiTokens.Layout.IconSize), dp(AirUiTokens.Layout.IconSize))
+                                    setOnClickListener {
+                                        AetherLyricServerStore.deleteProfile(activity, profile.id)
+                                        Toast.makeText(activity, "已刪除設定檔：${profile.name}", Toast.LENGTH_SHORT).show()
+                                        // 關閉目前對話框
+                                    }
+                                }
+                                addView(deleteBtn)
+                            }
+                        }
+
+                        row.setOnClickListener {
+                            AetherLyricServerStore.setActiveProfileId(activity, profile.id)
+                            activeProfile = profile
+                            profileNameView.text = profile.name
+                            profileUrlSubView.text = profile.url
+                            urlInput.setText(profile.url)
+
+                            // 切換時自動呼叫健康檢查測試連線
+                            performHealthCheck(profile.url)
+                            Toast.makeText(activity, "已切換至「${profile.name}」，正在測試連線...", Toast.LENGTH_SHORT).show()
+                        }
+                        addView(row)
                     }
+                },
+                onPositive = {
+                    // 彈出新增伺服器對話框
+                    var nameInput: EditText? = null
+                    var newUrlInput: EditText? = null
+                    showAirDialog(
+                        title = getString(R.string.ui_add_server_profile),
+                        message = "輸入伺服器名稱與存取位址",
+                        positiveText = "儲存並切換",
+                        negativeText = getString(R.string.ui_cancel),
+                        body = {
+                            nameInput = EditText(activity).apply {
+                                hint = getString(R.string.ui_profile_name_hint)
+                                textSize = AirUiTokens.TextSize.BodySmall
+                                setTextColor(colorTextStrong)
+                                setHintTextColor(colorTextMuted)
+                                setPadding(dp(AirUiTokens.Space.ButtonH), dp(AirUiTokens.Space.ControlV), dp(AirUiTokens.Space.ButtonH), dp(AirUiTokens.Space.ControlV))
+                                background = GradientDrawable().apply {
+                                    cornerRadius = dp(AirUiTokens.Radius.Md).toFloat()
+                                    setColor(colorSurfaceLight)
+                                    setStroke(dp(AirUiTokens.Stroke.Hairline), colorStroke)
+                                }
+                                layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+                            }
+                            addView(nameInput)
+
+                            newUrlInput = EditText(activity).apply {
+                                hint = "http://192.168.x.x:8000"
+                                textSize = AirUiTokens.TextSize.BodySmall
+                                setTextColor(colorTextStrong)
+                                setHintTextColor(colorTextMuted)
+                                setPadding(dp(AirUiTokens.Space.ButtonH), dp(AirUiTokens.Space.ControlV), dp(AirUiTokens.Space.ButtonH), dp(AirUiTokens.Space.ControlV))
+                                background = GradientDrawable().apply {
+                                    cornerRadius = dp(AirUiTokens.Radius.Md).toFloat()
+                                    setColor(colorSurfaceLight)
+                                    setStroke(dp(AirUiTokens.Stroke.Hairline), colorStroke)
+                                }
+                                val lp = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
+                                    setMargins(0, dp(AirUiTokens.Space.Sm), 0, 0)
+                                }
+                                layoutParams = lp
+                            }
+                            addView(newUrlInput)
+                        },
+                        onPositive = {
+                            val name = nameInput?.text?.toString()?.trim().orEmpty().ifBlank { "自訂伺服器" }
+                            val newUrl = newUrlInput?.text?.toString()?.trim().orEmpty()
+                            if (newUrl.isNotBlank()) {
+                                val added = AetherLyricServerStore.addProfile(activity, name, newUrl)
+                                AetherLyricServerStore.setActiveProfileId(activity, added.id)
+                                activeProfile = added
+                                profileNameView.text = added.name
+                                profileUrlSubView.text = added.url
+                                urlInput.setText(added.url)
+
+                                // 自動呼叫健康測試
+                                performHealthCheck(added.url)
+                                Toast.makeText(activity, "已新增並切換至「${added.name}」", Toast.LENGTH_SHORT).show()
+                            } else {
+                                Toast.makeText(activity, "伺服器位址不得為空", Toast.LENGTH_SHORT).show()
+                            }
+                        }
+                    )
                 }
-            }
-            override fun afterTextChanged(s: Editable?) {}
-        })
+            )
+        }
     }
 }
