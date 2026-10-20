@@ -93,13 +93,13 @@ android {
     ndkVersion = "26.3.11579264"
 
     defaultConfig {
-        applicationId = "com.andsi.airlyrics"
+        applicationId = "com.aetherlyric.app"
         buildConfigField("String", "SPICY_CLIENT_KEY", "\"$spicyClientKey\"")
         minSdk = 26
         //noinspection OldTargetApi
         targetSdk = 36
         versionCode = 18
-        versionName = "1.2.7"
+        versionName = "0.1.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
         ndk {

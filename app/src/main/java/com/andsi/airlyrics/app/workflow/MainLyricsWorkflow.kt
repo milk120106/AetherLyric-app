@@ -135,6 +135,15 @@ internal class MainLyricsWorkflow(
         return true
     }
 
+    fun saveLyricsOffsetForCurrentMedia(): Boolean {
+        val media = graph.viewModel.currentMediaInfo() ?: return false
+        val offset = LyricsOffsetStore.getOffsetMs(activity, media.toSongIdentity())
+        val isGlobal = LyricsOffsetStore.isGlobalOffsetEnabled(activity)
+        LyricsOffsetStore.saveCurrentOffset(activity, media.toSongIdentity(), offset, isGlobal)
+        graph.floatingController.applyLyricsOffset(offset)
+        return true
+    }
+
     fun showImportLyricsDialog(
         target: SongIdentity,
         plainImportEnabled: Boolean,

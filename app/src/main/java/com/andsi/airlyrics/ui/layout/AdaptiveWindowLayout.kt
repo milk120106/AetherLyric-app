@@ -61,7 +61,8 @@ internal class AdaptiveWindowLayout(private val host: MainUiHost, private val co
         val availableWidth = (width - paddingLeft - paddingRight).coerceAtLeast(0)
         val availableHeight = (height - paddingTop - paddingBottom).coerceAtLeast(0)
         val density = resources.displayMetrics.density
-        val useRail = availableWidth / density >= 600f
+        // 強制關閉自適應側邊欄 (Adaptive Rail)，橫向與直向模式皆維持底部導航
+        val useRail = false
         configureNavigation(useRail)
         val nav = navigation
         val navWidth = if (useRail) host.dp(WindowLayoutSpec.RAIL).coerceAtMost(availableWidth) else availableWidth

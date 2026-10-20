@@ -10,6 +10,9 @@ import com.andsi.airlyrics.i18n.localizedLyricsLineModeTitle
 import com.andsi.airlyrics.core.model.LyricsContentDisplayMode
 import com.andsi.airlyrics.core.model.LyricsLineDisplayMode
 import com.andsi.airlyrics.ui.components.actionButton
+import com.andsi.airlyrics.ui.components.settingSwitch
+import com.andsi.airlyrics.settings.store.LyricsOffsetStore
+import android.widget.Toast
 import com.andsi.airlyrics.ui.components.horizontalButtons
 import com.andsi.airlyrics.ui.components.normalText
 import com.andsi.airlyrics.ui.model.KeyedOptionItem
@@ -115,6 +118,25 @@ internal fun FloatingPageScope.addLyricsDisplaySection(list: LinearLayout) = wit
                             getString(R.string.ui_delay_0_1s) to { applyLyricsOffsetDelta(-100L, statusText) },
                             getString(R.string.ui_advance_0_1s) to { applyLyricsOffsetDelta(100L, statusText) }
                         ))
+                        addView(settingSwitch(
+                            host,
+                            getString(R.string.ui_apply_offset_to_all_songs),
+                            LyricsOffsetStore.isGlobalOffsetEnabled(host)
+                        ) { isChecked ->
+                            LyricsOffsetStore.setGlobalOffsetEnabled(host, isChecked)
+                            statusText.text = uiActions.currentLyricsOffsetSummary()
+                            refreshFloatingSettingTiles()
+                            Toast.makeText(
+                                host,
+                                if (isChecked) getString(R.string.ui_global_offset_enabled) else getString(R.string.ui_global_offset_disabled),
+                                Toast.LENGTH_SHORT
+                            ).show()
+                        })
+
+                        addView(actionButton(host, getString(R.string.ui_save_current_offset)) {
+                            saveLyricsOffset(statusText)
+                        })
+
                         addView(actionButton(host, getString(R.string.ui_reset_current_song_offset)) {
                             resetLyricsOffset(statusText)
                         })

@@ -1,4 +1,4 @@
-package com.andsi.airlyrics.app
+﻿package com.andsi.airlyrics.app
 
 import com.andsi.airlyrics.testutil.descendants
 import android.content.res.Configuration
@@ -46,7 +46,7 @@ class MainActivityWindowLayoutTest {
                 resize(width, 360)
                 assertSame(tile, descendants(root).single { it.getTag(R.id.interaction_anchor) == "panel:TEXT_SIZE" })
                 assertEquals(panelId, activity.graph.viewModel.interactions.panel)
-                assertEquals(if (width >= 600) LinearLayout.VERTICAL else LinearLayout.HORIZONTAL, activity.graph.uiHost.tabRow!!.orientation)
+                assertEquals(LinearLayout.HORIZONTAL, activity.graph.uiHost.tabRow!!.orientation)
                 assertEquals(if (width >= 1000) 2 else 1, page.columnCount)
             }
         }

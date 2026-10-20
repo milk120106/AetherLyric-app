@@ -46,6 +46,9 @@ internal fun createLyricsSettingsPage(activity: MainUiHost): View  = with(activi
         }
     )
 
+    // AetherLyric 自架伺服器雙引擎模式設定卡片
+    container.addView(createAetherLyricServerCard(activity))
+
     container.addView(createLyricsSourceOrderCard(activity, settings))
 
     container.addView(
@@ -102,10 +105,10 @@ internal fun createLyricsSettingsPage(activity: MainUiHost): View  = with(activi
         recentLyricsCard.refreshContent()
     }
 
-    listOf("heading", "current", "search", "sources", "directory", "recent", "delete").forEachIndexed { index, name ->
-        container.getChildAt(index).setTag(R.id.interaction_anchor, "lyrics.settings.$name")
+    listOf("heading", "current", "search", "server", "sources", "directory", "recent", "delete").forEachIndexed { index, name ->
+        container.getChildAt(index)?.setTag(R.id.interaction_anchor, "lyrics.settings.$name")
     }
-    return com.andsi.airlyrics.ui.layout.ResponsivePage(activity, container, setOf(0, 1, 5), "scroll.SETTINGS.LYRICS")
+    return com.andsi.airlyrics.ui.layout.ResponsivePage(activity, container, setOf(0, 1, 6), "scroll.SETTINGS.LYRICS")
 }
 
 internal fun createLyricsSourceOrderCard(

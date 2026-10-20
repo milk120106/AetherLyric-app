@@ -1,7 +1,7 @@
 <resources>
     <string name="ui_expand_text">展開文字</string>
     <string name="ui_collapse_text">收合文字</string>
-    <string name="app_name">AirLyrics</string>
+    <string name="app_name">AetherLyric</string>
     <string name="field_value">%1$s：%2$d</string>
     <string name="field_value_with_suffix">%1$s：%2$d%3$s</string>
     <string name="floating_color_summary">%1$s：%2$s</string>
@@ -33,7 +33,7 @@
     <string name="ui_adjustment_mode">調整模式</string>
     <string name="ui_advance_0_1s">提前 0.1s</string>
     <string name="ui_advance_1s">提前 1s</string>
-    <string name="ui_airlyrics_floating_lyrics">AirLyrics 懸浮歌詞</string>
+    <string name="ui_airlyrics_floating_lyrics">AetherLyric 懸浮歌詞</string>
     <string name="ui_alignment">對齊</string>
     <string name="ui_all_local_lyrics_removed">目前歌曲的本機歌詞已全部移除</string>
     <string name="ui_android_10_required">需要 Android 10+</string>
@@ -420,4 +420,43 @@
     <string name="provider_spicy_name">Spicy Lyrics</string>
     <string name="ui_search_international_title">國際標題搜尋</string>
     <string name="ui_searching_international_title">正在嘗試國際標題搜尋…</string>
+
+    <!-- AetherLyric 伺服器雙引擎模式設定 -->
+    <string name="ui_aetherlyric_server_title">AetherLyric 伺服器 (雙引擎模式)</string>
+    <string name="ui_aetherlyric_server_desc">連接自架伺服器，支援雲端 AI 轉錄、錨點校正與跨平台歌詞獲取</string>
+    <string name="ui_server_url_label">AetherLyric 伺服器位址</string>
+    <string name="ui_server_url_hint">http://192.168.x.x:8000</string>
+    <string name="ui_server_api_key_label">伺服器存取金鑰 (ADMIN_API_KEY)</string>
+    <string name="ui_server_api_key_hint">若伺服器已設定金鑰請填寫 (可留空)</string>
+    <string name="ui_test_connection">測試連線</string>
+    <string name="ui_testing_connection">連線測試中…</string>
+    <string name="ui_test_connection_success">連線正常：伺服器在線 (佇列：%1$d，引擎：%2$s)</string>
+    <string name="ui_test_connection_failed">連線失敗：%1$s</string>
+    <string name="ui_enable_server_engine">啟用 AetherLyric 伺服器</string>
+    <string name="ui_server_must_verify_first">請先輸入有效位址並點擊「測試連線」成功後再開啟</string>
+    <string name="ui_server_engine_status_on">雙引擎模式已啟用：優先使用自架伺服器 AI 引擎</string>
+    <string name="ui_server_engine_status_off">雙引擎模式已停用：使用本地多源聚合引擎</string>
+    <string name="ui_apply_offset_to_all_songs">套用到所有歌曲 (全域偏移量)</string>
+    <string name="ui_save_current_offset">儲存目前偏移量</string>
+    <string name="ui_global_offset_enabled">已啟用全域偏移量</string>
+    <string name="ui_global_offset_disabled">已切換為單曲專屬偏移量</string>
+    <string name="ui_offset_saved">已成功儲存目前偏移量</string>
+    <string name="provider_qq">QQ 音樂</string>
+    <string name="provider_kugou">酷狗音樂</string>
+    <string name="provider_genius">Genius</string>
+    <string name="provider_azlyrics">AZLyrics</string>
+    <string name="ui_ai_audio_transcription_title">AI 音訊歌詞辨識</string>
+    <string name="ui_ai_audio_transcription_desc">選取本機音訊檔案並傳送至 AetherLyric-server 進行 AI 歌詞生成</string>
+    <string name="ui_select_audio_file">選取音訊檔案 (MP3/FLAC)</string>
+    <string name="ui_upload_and_transcribe">上傳並生成歌詞</string>
+    <string name="ui_transcribing">AI 正在辨識歌詞中…</string>
+    <string name="ui_transcription_success">歌詞已成功生成並儲存！</string>
+    <string name="ui_transcription_failed">歌詞生成失敗：%1$s</string>
+    <string name="ui_lyrics_versions">歌詞版本管理</string>
+    <string name="ui_switch_version">切換版本</string>
+    <string name="ui_add_new_version">新增歌詞版本</string>
+    <string name="ui_version_name">版本名稱</string>
+    <string name="ui_version_name_hint">例如：羅馬拼音版、日文翻譯版、AI校正版</string>
+    <string name="ui_delete_version">刪除版本</string>
+    <string name="ui_version_applied">已切換至版本：%1$s</string>
 </resources>

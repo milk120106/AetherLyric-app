@@ -20,5 +20,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "AirLyrics"
+rootProject.name = "AetherLyric"
 include(":app")

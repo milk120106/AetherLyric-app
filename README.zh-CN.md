@@ -1,232 +1,70 @@
-<!--suppress HtmlDeprecatedAttribute -->
+# AetherLyric
+
 <div align="center">
 
-<!--suppress CheckImageSize -->
-<img src="docs/assets/airlyrics-logo.png" width="120" alt="AirLyrics Logo" />
+# AetherLyric-app
+**全功能 Android 悬浮同步歌词客户端 · 双引擎 AI 语音转录架构**
 
-# AirLyrics
-
-一个轻量的 Android 悬浮歌词应用。跟随当前播放的歌曲显示同步歌词，支持调整悬浮窗外观和导入本地歌词。
-
-[English](README.md) · [简体中文](README.zh-CN.md)
-
-<br />
-
-[下载](https://github.com/AirLyrics/AirLyrics/releases) · [文档](docs/README.zh-CN.md) ·
-[隐私政策](PRIVACY.zh-CN.md) · [建议与反馈](https://github.com/AirLyrics/AirLyrics/issues)
-
-<br />
-
-![Platform](https://img.shields.io/badge/platform-Android-brightgreen?style=flat-square)
-![Kotlin](https://img.shields.io/badge/Kotlin-Android-blueviolet?style=flat-square)
-![Rust](https://img.shields.io/badge/Rust-lyrics--core-orange?style=flat-square)
-[![Release](https://img.shields.io/github/v/release/AirLyrics/AirLyrics?style=flat-square)](https://github.com/AirLyrics/AirLyrics/releases)
+[![Platform](https://img.shields.io/badge/Platform-Android_8.0+-brightgreen?style=flat-square)](https://github.com/milk120106/AetherLyric-app)
+[![Version](https://img.shields.io/badge/Version-0.1.0-blueviolet?style=flat-square)](https://github.com/milk120106/AetherLyric-app/releases)
+[![License](https://img.shields.io/badge/License-MIT-orange?style=flat-square)](LICENSE)
 
 </div>
 
 ---
 
-<!--suppress HtmlDeprecatedAttribute -->
-<div align="center">
+## 项目概述 (Overview)
 
-<!--suppress CheckImageSize -->
-<img src="docs/assets/screenshot-floating-lyrics.jpg" width="720" alt="AirLyrics 悬浮歌词" />
+**AetherLyric-app** 是一款开源、轻量且功能强大的 Android 悬浮同步歌词应用程序（基于 AirLyrics 进行扩展与重构）。
 
-</div>
-
----
-
-## 项目状态
-
-AirLyrics 目前已可用于日常听歌，仍在持续维护和改进。(更新可能有点慢，但我有在维护！)
-
-不同 Android 版本、设备厂商和音乐应用可能存在兼容性差异。
-如果遇到问题，或有想要的功能，非常欢迎提交，项目的很多功能都是靠大家的反馈形成的。 [Issue](https://github.com/AirLyrics/AirLyrics/issues)。
+本项目最大特色在于**双引擎模式 (Dual-Engine Mode)**：
+1. **自建 AI 服务器引擎 (AetherLyric-server)**：可连接自建服务器，使用 Faster-Whisper / Groq / OpenAI 兼容模型进行 AI 语音转录、逐字对齐与智能歌词校正。
+2. **本地多源聚合引擎**：未连接服务器或自建服务器离线时，自动无缝降级使用本地多来源聚合搜索（网易云、QQ 音乐、酷狗音乐、LRCLIB、Musixmatch、Genius、AZLyrics 等）。
 
 ---
 
-## 快速开始
+## 核心功能特色 (Key Features)
 
-1. 安装 AirLyrics（需要 Android 8.0 或更高版本）。
-2. 授予必要权限。
-3. 播放音乐，并在 AirLyrics 中手动选择对应的媒体源。
-4. 打开 **悬浮窗** 页面，点击底栏的 **显示**。
+### 1. 双引擎架构 (Dual-Engine Architecture)
+- **服务器健康检测**：在「设置」页面提供服务器地址输入与「测试连接」验证，实时显示连接指示灯与队列状态。
+- **无缝自动降级**：优先调用自建服务器 API；连接超时或缓存未命中时，自动切换为本地多源查询。
 
-更多设置和常见问题见[使用说明书](docs/USER_GUIDE.zh-CN.md)，里面还包含了可能常见的一些问题。
+### 2. 本地歌词来源扩展 (Multi-Source Aggregation)
+- 支持自由排序、勾选与启用多家歌词源：
+  - **网易云音乐 (NetEase Cloud Music)**
+  - **QQ 音乐 (QQ Music)**
+  - **酷狗音乐 (Kugou)**
+  - **LRCLIB**
+  - **Musixmatch**
+  - **Genius**
+  - **AZLyrics**
+  - **Spicy Lyrics (逐字动态歌词)**
 
----
+### 3. 本地音频 AI 歌词识别
+- 主界面支持直接选取本地音频文件（MP3、FLAC、WAV 等）。
+- 一键上传至自建 AetherLyric-server 进行 AI 语音识别与时间轴自动对齐，实时生成并保存标准 LRC 歌词。
 
-## 功能一览
+### 4. 多歌词版本管理 (Multi-Version Lyrics)
+- 单一歌曲支持保存与管理多种歌词版本（如「官方原版」、「AI 识别版」、「日文翻译版」、「罗马音版」、「自定义修改版」）。
+- 一键即时切换版本，支持新增、重命名与删除。
+- **版本专属时间轴偏移**：切换版本时，自动应用该版本设定之专属时间轴偏移量。
 
-- **歌词搜索与导入**：跟随所选播放器切换歌曲，通过网易云音乐或 Musixmatch 搜索歌词；
-  也可导入本地 LRC 和 TTML，兼容 Apple Music 与 AMLL 常见的时间和翻译字段，
-  支持原文、翻译和逐字高亮。
-- **悬浮窗外观**：调整字体、字重、颜色、透明度、窗口样式和切换动画，
-  修改时可实时预览，也支持导入字体。
-- **主题**：支持浅色、深色和跟随系统，可选择不同的强调色。
-- **显示控制**：支持暂停时自动隐藏、锁定窗口、点击穿透和通知栏控制，
-  也可设置为仅在所选应用中显示。
-- **歌词管理**：按歌曲保存时间偏移，浏览、搜索、编辑和删除本地歌词。
+### 5. 歌词时间轴微调与保存
+- 支持以 `±0.1s` 及 `±1s` 精细微调时间轴。
+- 提供「保存当前偏移量」按钮，明确持久化至本地数据库。
+- 提供「是否应用到所有歌曲 (全局偏移量)」开关，轻松解决特定蓝牙耳机延迟问题。
 
----
+### 6. 歌词手动编辑器
+- 在最近播放与本地列表中点击即可进入编辑模式。
+- 支持手动修改错字、微调各行时间戳，并执行格式校验与覆盖保存。
 
-## 截图
-
-<!--suppress HtmlDeprecatedAttribute -->
-<div align="center">
-
-<table>
-  <tr>
-    <!--suppress HtmlDeprecatedAttribute -->
-    <td align="center">
-      <!--suppress CheckImageSize -->
-      <img src="fastlane/metadata/android/zh-CN/images/phoneScreenshots/1.jpg" width="240" alt="媒体检测设置" />
-      <br />
-      <sub>媒体</sub>
-    </td>
-    <!--suppress HtmlDeprecatedAttribute -->
-    <td align="center">
-      <!--suppress CheckImageSize -->
-      <img src="fastlane/metadata/android/zh-CN/images/phoneScreenshots/2.jpg" width="240" alt="悬浮歌词外观设置" />
-      <br />
-      <sub>悬浮歌词外观</sub>
-    </td>
-    <!--suppress HtmlDeprecatedAttribute -->
-    <td align="center">
-      <!--suppress CheckImageSize -->
-      <img src="fastlane/metadata/android/zh-CN/images/phoneScreenshots/3.jpg" width="240" alt="悬浮歌词控制与行为设置" />
-      <br />
-      <sub>悬浮窗控制</sub>
-    </td>
-  </tr>
-  <tr>
-    <!--suppress HtmlDeprecatedAttribute -->
-    <td align="center">
-      <!--suppress CheckImageSize -->
-      <img src="fastlane/metadata/android/zh-CN/images/phoneScreenshots/4.jpg" width="240" alt="当前歌词与搜索设置" />
-      <br />
-      <sub>当前歌词</sub>
-    </td>
-    <!--suppress HtmlDeprecatedAttribute -->
-    <td align="center">
-      <!--suppress CheckImageSize -->
-      <img src="fastlane/metadata/android/zh-CN/images/phoneScreenshots/5.jpg" width="240" alt="歌词来源、存储与本地歌词管理" />
-      <br />
-      <sub>本地歌词管理</sub>
-    </td>
-    <!--suppress HtmlDeprecatedAttribute -->
-    <td align="center">
-      <!--suppress CheckImageSize -->
-      <img src="fastlane/metadata/android/zh-CN/images/phoneScreenshots/6.jpg" width="240" alt="歌词编辑、格式检查与保存" />
-      <br />
-      <sub>歌词编辑</sub>
-    </td>
-  </tr>
-  <tr>
-    <!--suppress HtmlDeprecatedAttribute -->
-    <td align="center" colspan="3">
-      <!--suppress CheckImageSize -->
-      <img src="fastlane/metadata/android/zh-CN/images/phoneScreenshots/7.jpg" width="240" alt="系统集成设置" />
-      <br />
-      <sub>系统设置</sub>
-    </td>
-  </tr>
-</table>
-
-<!--suppress CheckImageSize -->
-<img src="fastlane/metadata/android/zh-CN/images/phoneScreenshots/8.jpg" width="720" alt="AirLyrics 通知与媒体控制" />
-<br />
-<sub>通知栏控制</sub>
-
-</div>
+### 7. 原生极简设计与界面固定
+- 底部导航栏固定置底，防止旋转横屏时突兀切换为侧边栏。
+- 完整适配深色与浅色主题，圆角与色系完全融入现代 Material 设计语言。
 
 ---
 
-## 权限说明
+## 许可证 (License)
 
-AirLyrics 使用以下权限或系统功能：
-
-| 权限 / 系统功能 | 用途 |
-| --- | --- |
-| 显示在其他应用上层 | 显示悬浮歌词窗口 |
-| 通知访问权限 | 获取当前播放的媒体信息 |
-| 通知权限 | 显示前台服务通知及控制按钮 |
-| 使用情况访问 | 判断所选应用是否可见，用于控制悬浮歌词的显示（可选，Android 10+） |
-| 网络访问 | 在线搜索歌词 |
-| 文件选择器 | 导入本地歌词、选择歌词保存目录 |
-
-有关权限、数据存储和联网搜索的详细说明，见[隐私政策](PRIVACY.zh-CN.md)。
-
----
-
-## 文档
-
-| 文档 | 内容 |
-| --- | --- |
-| [文档首页](docs/README.zh-CN.md) | 中文文档索引 |
-| [隐私政策](PRIVACY.zh-CN.md) | 权限、数据存储与联网搜索 |
-| [使用说明书](docs/USER_GUIDE.zh-CN.md) | 使用方法与常见问题 |
-| [歌词格式](docs/LYRICS_FORMAT.zh-CN.md) | 本地 LRC 与 TTML 导入说明 |
-| [贡献指南](docs/CONTRIBUTING.zh-CN.md) | 开发环境、提交流程与代码位置 |
-| [项目架构](docs/ARCHITECTURE.zh-CN.md) | 模块划分与运行流程 |
-
----
-
-## 从源码构建
-
-### 环境要求
-
-- JDK 17
-- Android SDK
-- Android NDK `26.3.11579264`
-- Rust stable（通过 `rustup` 安装）
-- `cargo-ndk`
-- Rust Android 编译目标：
-  - 默认构建 `arm64-v8a`，需要安装 `aarch64-linux-android`。
-  - 使用 `-Pairlyrics.buildX86_64=true` 构建时，还需安装 `x86_64-linux-android`。
-
-推荐通过 Android Studio 安装和配置 Android SDK、NDK。
-开发环境的详细配置见[贡献指南](docs/CONTRIBUTING.zh-CN.md)。
-
-### 克隆仓库
-
-```bash
-git clone https://github.com/AirLyrics/AirLyrics.git
-cd AirLyrics
-```
-
-### 构建 Debug APK
-
-```bash
-./gradlew assembleDebug
-```
-
-构建完成后，APK 位于：
-
-```txt
-app/build/outputs/apk/debug/
-```
-
----
-
-## 反馈与贡献
-
-欢迎通过 [GitHub Issues](https://github.com/AirLyrics/AirLyrics/issues) 反馈问题或提出建议。
-反馈 Bug 时，请尽量附上设备型号、Android 版本、使用的音乐应用和复现步骤，方便排查。
-有图片或者视频也很好。
-
-想参与开发，可以先阅读[贡献指南](docs/CONTRIBUTING.zh-CN.md)。
-
-真的感谢所有提供反馈和参与贡献的人。
-
----
-
-## 鸣谢
-
-- [waylyrics](https://github.com/waylyrics/waylyrics)
-
----
-
-## 许可证
-
-本项目采用 [MIT License](LICENSE)。
+本项目基于 [AirLyrics](https://github.com/AirLyrics/AirLyrics) (MIT License) 进行 Fork 与二次开发。
+本项目同样采用 [MIT 许可证](LICENSE)。

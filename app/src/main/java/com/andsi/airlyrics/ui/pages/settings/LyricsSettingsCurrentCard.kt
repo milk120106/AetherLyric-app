@@ -1,4 +1,4 @@
-package com.andsi.airlyrics.ui.pages.settings
+﻿package com.andsi.airlyrics.ui.pages.settings
 
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
@@ -32,6 +32,8 @@ import com.andsi.airlyrics.ui.theme.colorAccentMint
 import com.andsi.airlyrics.ui.theme.colorStroke
 import com.andsi.airlyrics.ui.theme.colorSurfaceLight
 import com.andsi.airlyrics.ui.theme.colorTextMuted
+import com.andsi.airlyrics.lyrics.storage.LyricsVersionStore
+import com.andsi.airlyrics.ui.dialogs.showLyricsVersionDialog
 import com.andsi.airlyrics.design.tokens.AirUiTokens
 
 
@@ -46,6 +48,7 @@ internal fun createCurrentLyricsCard(activity: MainUiHost): RefreshableSettingsC
         setTextColor(colorAccentMint)
         gravity = Gravity.CENTER_VERTICAL
     }
+    var requestPopulate: () -> Unit = {}
 
     fun render(state: CurrentLyricsUiState) {
         body.removeAllViews()
@@ -76,6 +79,19 @@ internal fun createCurrentLyricsCard(activity: MainUiHost): RefreshableSettingsC
         body.addView(settingRow(activity, getString(R.string.ui_current_offset), localizedOffsetDescription(state.offsetMs)))
         if (state.offsetMs != 0L) {
             body.addView(smallHint(activity, getString(R.string.ui_offset_per_song_hint)))
+        }
+
+        val songIdent = state.operationTarget?.song
+        if (songIdent != null) {
+            val currentVersionId = LyricsVersionStore.getActiveVersionId(activity, songIdent.storageKey())
+            val currentVersionName = LyricsVersionStore.getVersions(activity, songIdent).firstOrNull { it.versionId == currentVersionId }?.versionName ?: "預設版本"
+            body.addView(settingRow(activity, getString(R.string.ui_lyrics_versions), currentVersionName))
+            body.addView(actionButton(activity, getString(R.string.ui_switch_version)) {
+                showLyricsVersionDialog(activity, songIdent) {
+                    requestPopulate()
+                    playLocalRefreshFeedback(activity, body, feedback, getString(R.string.ui_updated))
+                }
+            })
         }
 
         body.addView(actionButton(activity, getString(R.string.ui_import_lyrics_for_current_song)) {
@@ -164,6 +180,7 @@ internal fun createCurrentLyricsCard(activity: MainUiHost): RefreshableSettingsC
         }
     }
 
+    requestPopulate = { populate(preserveContent = true) }
     populate()
 
     val cardView = card(activity) {
@@ -196,7 +213,7 @@ internal fun createCurrentLyricsCard(activity: MainUiHost): RefreshableSettingsC
     }
     return RefreshableSettingsCard(
         view = cardView,
-        refreshContent = { populate(preserveContent = true) }
+        refreshContent = { requestPopulate() }
     )
 }
 

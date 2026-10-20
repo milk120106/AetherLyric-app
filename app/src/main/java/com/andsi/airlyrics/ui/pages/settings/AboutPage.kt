@@ -73,7 +73,7 @@ private fun MainUiHost.aboutLogoHeader(): View {
             })
         })
 
-        addView(bigText(activity, "AirLyrics").apply {
+        addView(bigText(activity, getString(R.string.app_name)).apply {
             gravity = Gravity.CENTER_HORIZONTAL
             setPadding(0, dp(AirUiTokens.Space.Xl), 0, 0)
         })
@@ -114,7 +114,7 @@ private fun MainUiHost.githubIconButton(activity: MainUiHost): View {
         enableSoftPressFeedback(AirUiTokens.Motion.StrongPressScale)
         setOnClickListener {
             playTinyPulse(this)
-            openUrl("https://github.com/AirLyrics/AirLyrics")
+            openUrl("https://github.com/milk120106/AetherLyric-app")
         }
 
         addView(ImageView(activity).apply {

@@ -17,6 +17,10 @@ internal fun Context.localizedPlainLyricsProviderName(plainProviderIdOrName: Str
         "musixmatch" -> R.string.provider_musixmatch
         "lrclib" -> R.string.provider_lrclib
         "spicy" -> R.string.provider_spicy_name
+        "qq", "qqmusic", "qq music" -> R.string.provider_qq
+        "kugou", "kugou music" -> R.string.provider_kugou
+        "genius" -> R.string.provider_genius
+        "azlyrics" -> R.string.provider_azlyrics
         else -> null
     }
     return providerRes?.let { getString(it) }

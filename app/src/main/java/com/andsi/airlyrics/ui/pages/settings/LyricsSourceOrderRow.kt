@@ -108,7 +108,7 @@ internal class LyricsSourceOptionButton(
         selectedPriority: Int?,
         fullTitle: String
     ) {
-        val configured = source != PlainLyricsSearchSource.SPICY || com.andsi.airlyrics.BuildConfig.SPICY_CLIENT_KEY.isNotBlank()
+        val configured = true
         isEnabled = configured || selectedPriority != null
         alpha = if (configured) 1f else 0.5f
         val selected = selectedPriority != null

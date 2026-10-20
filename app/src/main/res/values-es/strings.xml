@@ -1,7 +1,7 @@
 <resources>
     <string name="ui_expand_text">Expandir texto</string>
     <string name="ui_collapse_text">Contraer texto</string>
-    <string name="app_name">AirLyrics</string>
+    <string name="app_name">AetherLyric</string>
     <string name="field_value">%1$s: %2$d</string>
     <string name="field_value_with_suffix">%1$s: %2$d%3$s</string>
     <string name="floating_color_summary">%1$s: %2$s</string>
@@ -33,7 +33,7 @@
     <string name="ui_adjustment_mode">Modo de ajuste</string>
     <string name="ui_advance_0_1s">Adelantar 0.1s</string>
     <string name="ui_advance_1s">Adelantar 1s</string>
-    <string name="ui_airlyrics_floating_lyrics">Letras flotantes de AirLyrics</string>
+    <string name="ui_airlyrics_floating_lyrics">Letras flotantes de AetherLyric</string>
     <string name="ui_alignment">Alineación</string>
     <string name="ui_all_local_lyrics_removed">Se eliminaron todas las letras locales de esta canción</string>
     <string name="ui_android_10_required">Requiere Android 10 o superior</string>
@@ -74,7 +74,7 @@
     <string name="ui_choose_accent_color">Elegir color de acento</string>
     <string name="ui_choose_lyrics_save_folder">Elegir carpeta de guardado de letras</string>
     <string name="ui_choose_apps">Elegir apps</string>
-    <string name="ui_choose_the_player_airlyrics_follows">Elige el reproductor que AirLyrics seguirá </string>
+    <string name="ui_choose_the_player_airlyrics_follows">Elige el reproductor que AetherLyric seguirá </string>
     <string name="ui_clean_letters">Limpio</string>
     <string name="ui_click_through">Traspaso de toques</string>
     <string name="ui_click_through_off">Traspaso de toques: Desactivado</string>

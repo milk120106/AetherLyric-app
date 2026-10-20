@@ -42,7 +42,7 @@ internal fun createSettingsHomePage(activity: MainUiHost): View  = with(activity
         settingsCategoryCard(
             title = getString(R.string.ui_about),
             subtitle = getString(R.string.ui_version_project_link_and_changelog),
-            status = "AirLyrics ${getAppVersionName()}",
+            status = "AetherLyric ${getAppVersionName()}",
             iconRes = R.drawable.ic_air_info
         ) {
             uiActions.openSettingsSubPage(SettingsSubPage.ABOUT)

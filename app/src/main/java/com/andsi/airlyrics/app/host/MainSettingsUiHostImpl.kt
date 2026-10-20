@@ -196,9 +196,9 @@ internal fun MainUiHost.permissionSummaryImpl(): String {
 internal fun MainUiHost.getAppVersionNameImpl(): String {
     return try {
         val packageInfo = packageManager.getPackageInfo(packageName, 0)
-        packageInfo.versionName ?: "1.0"
+        packageInfo.versionName ?: com.andsi.airlyrics.BuildConfig.VERSION_NAME
     } catch (_: Exception) {
-        "1.0"
+        com.andsi.airlyrics.BuildConfig.VERSION_NAME
     }
 }
 

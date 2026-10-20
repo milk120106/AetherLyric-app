@@ -1,242 +1,109 @@
-<!--suppress HtmlDeprecatedAttribute -->
+# AetherLyric
+
 <div align="center">
 
-<!--suppress CheckImageSize -->
-<img src="docs/assets/airlyrics-logo.png" width="120" alt="AirLyrics Logo" />
+# AetherLyric-app
+**全功能 Android 懸浮同步歌詞客戶端 · 雙引擎 AI 語音轉錄架構**
 
-# AirLyrics
-
-A lightweight floating lyrics app for Android. Displays synced lyrics for the song currently
-playing, with a customizable overlay and support for importing local lyrics.
-
-[English](README.md) · [简体中文](README.zh-CN.md)
-
-<br />
-
-[Download](https://github.com/AirLyrics/AirLyrics/releases) · [Docs](docs/README.md) ·
-[Privacy Policy](PRIVACY.md) · [Feedback](https://github.com/AirLyrics/AirLyrics/issues)
-
-<br />
-
-![Platform](https://img.shields.io/badge/platform-Android-brightgreen?style=flat-square)
-![Kotlin](https://img.shields.io/badge/Kotlin-Android-blueviolet?style=flat-square)
-![Rust](https://img.shields.io/badge/Rust-lyrics--core-orange?style=flat-square)
-[![Release](https://img.shields.io/github/v/release/AirLyrics/AirLyrics?style=flat-square)](https://github.com/AirLyrics/AirLyrics/releases)
+[![Platform](https://img.shields.io/badge/Platform-Android_8.0+-brightgreen?style=flat-square)](https://github.com/milk120106/AetherLyric-app)
+[![Version](https://img.shields.io/badge/Version-0.1.0-blueviolet?style=flat-square)](https://github.com/milk120106/AetherLyric-app/releases)
+[![License](https://img.shields.io/badge/License-MIT-orange?style=flat-square)](LICENSE)
 
 </div>
 
 ---
 
-<!--suppress HtmlDeprecatedAttribute -->
-<div align="center">
+## 專案概述 (Overview)
 
-<!--suppress CheckImageSize -->
-<img src="docs/assets/screenshot-floating-lyrics.jpg" width="720" alt="AirLyrics floating lyrics" />
+**AetherLyric-app** 是一款開源、輕量且功能強大的 Android 懸浮同步歌詞應用程式（基於 AirLyrics 進行擴充與重構）。
 
-</div>
-
----
-
-## Project Status
-
-AirLyrics is ready for everyday use and is still being maintained and improved. (Updates may be a bit slow, but I am still maintaining it!)
-
-Compatibility may vary depending on the Android version, device manufacturer, and music app.
-If something isn't working or there's a feature you'd like to see, you're very welcome to open an
-[issue](https://github.com/AirLyrics/AirLyrics/issues). Many of the project's features have come from your feedback.
+本專案最大特色在於**雙引擎模式 (Dual-Engine Mode)**：
+1. **自架 AI 伺服器引擎 (AetherLyric-server)**：可連接自架伺服器，使用 Faster-Whisper / Groq / OpenAI 相容模型進行 AI 語音轉錄、逐字對齊與智慧歌詞校正。
+2. **本機多源聚合引擎**：未連接伺服器或自架伺服器離線時，自動無縫降級使用本地多來源聚合搜尋（網易雲、QQ 音樂、酷狗音樂、LRCLIB、Musixmatch、Genius、AZLyrics 等）。
 
 ---
 
-## Quick Start
+## 核心功能特色 (Key Features)
 
-1. Install AirLyrics (Android 8.0 or later required).
-2. Grant the required permissions.
-3. Play some music, then manually select the corresponding media source in AirLyrics.
-4. Open the **Overlay** page and tap **Show** in the bottom bar.
+### 1. 雙引擎架構 (Dual-Engine Architecture)
+- **伺服器健康檢測**：在「設定」頁面提供伺服器位址輸入與「測試連線」驗證，即時顯示連線燈號與佇列狀態。
+- **無縫自動降級**：優先呼叫自架伺服器 API；連線逾時或快取未命中時，自動無痛切換為本地多源查詢。
 
-For more settings and help with common problems, see the [User Guide](docs/USER_GUIDE.md).
+### 2. 本地歌詞來源擴充 (Multi-Source Aggregation)
+- 支援自由排序、勾選與啟用多家歌詞源：
+  - **網易雲音樂 (NetEase Cloud Music)**
+  - **QQ 音樂 (QQ Music)**
+  - **酷狗音樂 (Kugou)**
+  - **LRCLIB**
+  - **Musixmatch**
+  - **Genius**
+  - **AZLyrics**
+  - **Spicy Lyrics (逐字動態歌詞)**
 
----
+### 3. 本地音訊 AI 歌詞辨識
+- 主畫面支援直接選取本機音檔（MP3、FLAC、WAV 等）。
+- 一鍵上傳至自架 AetherLyric-server 進行 AI 語音辨識與時間軸自動對齊，即時生成並儲存標準 LRC 歌詞。
 
-## Features
+### 4. 多歌詞版本管理 (Multi-Version Lyrics)
+- 單一歌曲支援儲存與管理多種歌詞版本（如「官方原版」、「AI 辨識版」、「日文翻譯版」、「羅馬拼音版」、「自訂修改版」）。
+- 一鍵即時切換版本，支援新增、命名與刪除。
+- **版本專屬時間軸偏移**：切換版本時，自動套用該版本設定之專屬時間軸偏移量。
 
-- **Lyrics search and import**: Follows song changes in the selected player and searches for lyrics
-  through NetEase Cloud Music or Musixmatch. You can also import local LRC and TTML files, with
-  support for common timing and translation fields used by Apple Music and AMLL, original lyrics,
-  translations, and word-by-word highlighting.
-- **Overlay appearance**: Adjust the font, weight, colors, opacity, window style, and transition
-  animations, with a live preview as you make changes. You can also import your own fonts.
-- **Themes**: Choose a light or dark theme, or follow the system setting, with several accent colors
-  available.
-- **Display controls**: Automatically hide lyrics when playback is paused, lock the window, let taps
-  pass through it, or control it from the notification. You can also limit the overlay to selected
-  apps.
-- **Lyrics management**: Save timing offsets for individual songs, and browse, search, edit, or
-  delete local lyrics.
+### 5. 歌詞時間軸微調與儲存
+- 支援以 `±0.1s` 及 `±1s` 精細微調時間軸。
+- 提供「儲存目前偏移量」按鈕，明確持久化至本地資料庫。
+- 提供「是否套用到所有歌曲 (全域偏移量)」開關，輕鬆解決特定耳機延遲問題。
 
----
+### 6. 歌詞手動編輯器
+- 在最近播放與本機清單中點擊即可進入編輯模式。
+- 支援手動修改錯字、微調各行時間戳記，並執行格式校驗與覆蓋儲存。
 
-## Screenshots
-
-<!--suppress HtmlDeprecatedAttribute -->
-<div align="center">
-
-<table>
-  <tr>
-    <!--suppress HtmlDeprecatedAttribute -->
-    <td align="center">
-      <!--suppress CheckImageSize -->
-      <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/1.jpg" width="240" alt="Media detection settings" />
-      <br />
-      <sub>Media</sub>
-    </td>
-    <!--suppress HtmlDeprecatedAttribute -->
-    <td align="center">
-      <!--suppress CheckImageSize -->
-      <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/2.jpg" width="240" alt="Floating lyrics appearance settings" />
-      <br />
-      <sub>Overlay appearance</sub>
-    </td>
-    <!--suppress HtmlDeprecatedAttribute -->
-    <td align="center">
-      <!--suppress CheckImageSize -->
-      <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/3.jpg" width="240" alt="Floating lyrics controls and behavior settings" />
-      <br />
-      <sub>Overlay controls</sub>
-    </td>
-  </tr>
-  <tr>
-    <!--suppress HtmlDeprecatedAttribute -->
-    <td align="center">
-      <!--suppress CheckImageSize -->
-      <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/4.jpg" width="240" alt="Current lyrics and search settings" />
-      <br />
-      <sub>Current lyrics</sub>
-    </td>
-    <!--suppress HtmlDeprecatedAttribute -->
-    <td align="center">
-      <!--suppress CheckImageSize -->
-      <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/5.jpg" width="240" alt="Lyrics sources, storage, and local lyrics management" />
-      <br />
-      <sub>Local lyrics</sub>
-    </td>
-    <!--suppress HtmlDeprecatedAttribute -->
-    <td align="center">
-      <!--suppress CheckImageSize -->
-      <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/6.jpg" width="240" alt="Lyrics editing, format checking, and saving" />
-      <br />
-      <sub>Lyrics editor</sub>
-    </td>
-  </tr>
-  <tr>
-    <!--suppress HtmlDeprecatedAttribute -->
-    <td align="center" colspan="3">
-      <!--suppress CheckImageSize -->
-      <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/7.jpg" width="240" alt="System integration settings" />
-      <br />
-      <sub>System settings</sub>
-    </td>
-  </tr>
-</table>
-
-<!--suppress CheckImageSize -->
-<img src="fastlane/metadata/android/en-US/images/phoneScreenshots/8.jpg" width="720" alt="AirLyrics notification and media controls" />
-<br />
-<sub>Notification controls</sub>
-
-</div>
+### 7. 原生極簡設計與介面固定
+- 底部導航欄固定置底，防止旋轉橫向時突兀切換為側邊欄。
+- 完整適配深色與淺色主題，圓角與色系完全融入現代 Material 設計語彙。
 
 ---
 
-## Permissions
+## 快速開始 (Quick Start)
 
-AirLyrics uses the following permissions and system features:
+### 系統需求
+- Android 8.0 (API Level 26) 或以上。
+- 音樂播放器需支援標準 Android MediaSession（如 Spotify、Apple Music、YouTube Music、Poweramp 等）。
 
-| Permission / System Feature | Purpose |
-| --- | --- |
-| Display over other apps | Show the floating lyrics window |
-| Notification access | Read information about the media currently playing |
-| Notifications | Show the foreground service notification and control buttons |
-| Usage access | Check whether selected apps are visible to control when the lyrics overlay appears (optional, Android 10+) |
-| Network access | Search for lyrics online |
-| File picker | Import local lyrics and choose a folder for saving lyrics |
+### 安裝步驟
+1. 前往 [Releases](https://github.com/milk120106/AetherLyric-app/releases) 下載最新 `app-debug.apk`。
+2. 在手機上安裝並授予「通知讀取權限」與「懸浮視窗權限」。
+3. 播放任意音樂，開啟 AetherLyric 懸浮窗即可開始享受同步歌詞。
 
-For details about permissions, data storage, and online searches, see the
-[Privacy Policy](PRIVACY.md).
-
----
-
-## Documentation
-
-| Document | Contents |
-| --- | --- |
-| [Documentation Home](docs/README.md) | English documentation index |
-| [Privacy Policy](PRIVACY.md) | Permissions, data storage, and online searches |
-| [User Guide](docs/USER_GUIDE.md) | Usage instructions and common problems |
-| [Lyrics Formats](docs/LYRICS_FORMAT.md) | Importing local LRC and TTML files |
-| [Contributing Guide](docs/CONTRIBUTING.md) | Development setup, contribution workflow, and code locations |
-| [Project Architecture](docs/ARCHITECTURE.md) | Modules and how the app runs |
+### 連接自架伺服器
+1. 前往 **設定 -> AetherLyric 伺服器**。
+2. 輸入自架伺服器位址（例如 `http://192.168.1.100:8000`）與 API Key（選填）。
+3. 點擊「測試連線」驗證通過後，開啟「啟用 AetherLyric 伺服器」開關即可。
 
 ---
 
-## Building from Source
-
-### Requirements
-
-- JDK 17
-- Android SDK
-- Android NDK `26.3.11579264`
-- Rust stable (installed through `rustup`)
-- `cargo-ndk`
-- Rust Android targets:
-  - The default `arm64-v8a` build requires `aarch64-linux-android`.
-  - Building with `-Pairlyrics.buildX86_64=true` also requires `x86_64-linux-android`.
-
-Android Studio is recommended for installing and configuring the Android SDK and NDK.
-For detailed setup instructions, see the [Contributing Guide](docs/CONTRIBUTING.md).
-
-### Clone the Repository
+## 建置與開發 (Build)
 
 ```bash
-git clone https://github.com/AirLyrics/AirLyrics.git
-cd AirLyrics
-```
+# 複製專案
+git clone https://github.com/milk120106/AetherLyric-app.git
+cd AetherLyric-app
 
-### Build a Debug APK
+# 確保 local.properties 已設定 Android SDK 路徑
+echo "sdk.dir=D:/Android/Sdk" > local.properties
 
-```bash
+# 執行單元測試
+./gradlew testDebugUnitTest
+
+# 打包 Debug APK
 ./gradlew assembleDebug
 ```
 
-Once the build finishes, the APK will be in:
-
-```txt
-app/build/outputs/apk/debug/
-```
+產出 APK 路徑位於：`app/build/outputs/apk/debug/app-debug.apk`。
 
 ---
 
-## Feedback and Contributions
+## 授權條款 (License)
 
-Bug reports and suggestions are welcome on
-[GitHub Issues](https://github.com/AirLyrics/AirLyrics/issues).
-When reporting a bug, please include your device model, Android version, music app, and steps to
-reproduce the problem if possible.
-Screenshots or a short video are helpful too.
-
-If you'd like to contribute code, the [Contributing Guide](docs/CONTRIBUTING.md) is a good place to
-start.
-
-Thanks so much to everyone who has shared feedback or contributed.
-
----
-
-## Acknowledgments
-
-- [waylyrics](https://github.com/waylyrics/waylyrics)
-
----
-
-## License
-
-This project is licensed under the [MIT License](LICENSE).
+本專案基於 [AirLyrics](https://github.com/AirLyrics/AirLyrics) (MIT License) 進行 Fork 與二次開發。
+本專案同樣採用 [MIT 授權條款](LICENSE)。

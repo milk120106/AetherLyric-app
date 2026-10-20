@@ -53,6 +53,8 @@ internal fun createMediaPage(activity: MainUiHost, animateContent: Boolean = tru
     )
 
     container.addView(spacer(activity, 12))
+    container.addView(createAudioAiTranscriptionCard(activity))
+    container.addView(spacer(activity, 12))
     container.addView(label(activity, getString(R.string.ui_active_players), colorTextMuted))
 
     if (controllers.isEmpty()) {

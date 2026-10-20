@@ -11,6 +11,10 @@ import com.andsi.airlyrics.lyrics.providers.LocalPlainLyricsProvider
 import com.andsi.airlyrics.lyrics.providers.LrclibPlainLyricsProvider
 import com.andsi.airlyrics.lyrics.providers.MusixmatchPlainLyricsProvider
 import com.andsi.airlyrics.lyrics.providers.NeteasePlainLyricsProvider
+import com.andsi.airlyrics.lyrics.providers.AzLyricsPlainLyricsProvider
+import com.andsi.airlyrics.lyrics.providers.GeniusPlainLyricsProvider
+import com.andsi.airlyrics.lyrics.providers.KugouPlainLyricsProvider
+import com.andsi.airlyrics.lyrics.providers.QqMusicPlainLyricsProvider
 import com.andsi.airlyrics.lyrics.storage.LyricsStorage
 import com.andsi.airlyrics.lyrics.storage.ManualLyricsSelectionStore
 import com.andsi.airlyrics.core.model.SongIdentity
@@ -29,7 +33,11 @@ import java.util.concurrent.CancellationException
 object LyricsRepository {
     private val onlinePlainLyricsProviders = mapOf(
         PlainLyricsSearchSource.NETEASE to NeteasePlainLyricsProvider,
+        PlainLyricsSearchSource.QQ to QqMusicPlainLyricsProvider,
+        PlainLyricsSearchSource.KUGOU to KugouPlainLyricsProvider,
         PlainLyricsSearchSource.MUSIXMATCH to MusixmatchPlainLyricsProvider,
+        PlainLyricsSearchSource.GENIUS to GeniusPlainLyricsProvider,
+        PlainLyricsSearchSource.AZLYRICS to AzLyricsPlainLyricsProvider,
         PlainLyricsSearchSource.LRCLIB to LrclibPlainLyricsProvider,
         PlainLyricsSearchSource.SPICY to SpicyLyricsProvider
     )

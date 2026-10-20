@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">AirLyrics</string>
+    <string name="app_name">AetherLyric</string>
     <string name="field_value">%1$s: %2$d</string>
     <string name="field_value_with_suffix">%1$s: %2$d%3$s</string>
     <string name="floating_color_summary">%1$s: %2$s</string>
@@ -31,7 +31,7 @@
     <string name="ui_adjustment_mode">Adjustment mode</string>
     <string name="ui_advance_0_1s">Advance 0.1s</string>
     <string name="ui_advance_1s">Advance 1s</string>
-    <string name="ui_airlyrics_floating_lyrics">AirLyrics Floating Lyrics</string>
+    <string name="ui_airlyrics_floating_lyrics">AetherLyric Floating Lyrics</string>
     <string name="ui_alignment">Alignment</string>
     <string name="ui_all_local_lyrics_removed">All local lyrics removed for this song</string>
     <string name="ui_android_10_required">Requires Android 10+</string>
@@ -421,4 +421,43 @@ Word-timed TTML:
     <string name="provider_spicy_name">Spicy Lyrics</string>
     <string name="ui_search_international_title">Search with international title</string>
     <string name="ui_searching_international_title">Trying international-title search…</string>
+
+    <!-- AetherLyric Dual Engine Server Settings -->
+    <string name="ui_aetherlyric_server_title">AetherLyric Server (Dual-Engine Mode)</string>
+    <string name="ui_aetherlyric_server_desc">Connect to self-hosted server for AI transcription, alignment, and fast lyrics</string>
+    <string name="ui_server_url_label">AetherLyric Server URL</string>
+    <string name="ui_server_url_hint">http://192.168.x.x:8000</string>
+    <string name="ui_server_api_key_label">Admin API Key (ADMIN_API_KEY)</string>
+    <string name="ui_server_api_key_hint">Leave empty if not required</string>
+    <string name="ui_test_connection">Test Connection</string>
+    <string name="ui_testing_connection">Testing connection…</string>
+    <string name="ui_test_connection_success">Connected: Server Online (Queue: %1$d, Engine: %2$s)</string>
+    <string name="ui_test_connection_failed">Connection failed: %1$s</string>
+    <string name="ui_enable_server_engine">Enable AetherLyric Server</string>
+    <string name="ui_server_must_verify_first">Please test connection successfully before enabling</string>
+    <string name="ui_server_engine_status_on">Dual-Engine Active: Prefer Self-hosted AI Server</string>
+    <string name="ui_server_engine_status_off">Dual-Engine Inactive: Using Local Multi-source Engine</string>
+    <string name="ui_apply_offset_to_all_songs">Apply to all songs (Global)</string>
+    <string name="ui_save_current_offset">Save current offset</string>
+    <string name="ui_global_offset_enabled">Global offset enabled for all songs</string>
+    <string name="ui_global_offset_disabled">Switched to per-song offset</string>
+    <string name="ui_offset_saved">Offset saved successfully</string>
+    <string name="provider_qq">QQ Music</string>
+    <string name="provider_kugou">Kugou Music</string>
+    <string name="provider_genius">Genius</string>
+    <string name="provider_azlyrics">AZLyrics</string>
+    <string name="ui_ai_audio_transcription_title">AI Audio Transcription</string>
+    <string name="ui_ai_audio_transcription_desc">Select a local audio file and send to AetherLyric-server for AI lyrics generation</string>
+    <string name="ui_select_audio_file">Select Audio File (MP3/FLAC)</string>
+    <string name="ui_upload_and_transcribe">Upload &amp; Generate Lyrics</string>
+    <string name="ui_transcribing">Transcribing with AI…</string>
+    <string name="ui_transcription_success">Lyrics generated and saved successfully!</string>
+    <string name="ui_transcription_failed">Transcription failed: %1$s</string>
+    <string name="ui_lyrics_versions">Lyrics Versions</string>
+    <string name="ui_switch_version">Switch Version</string>
+    <string name="ui_add_new_version">Add New Version</string>
+    <string name="ui_version_name">Version Name</string>
+    <string name="ui_version_name_hint">e.g. Romanized, Japanese Trans, AI Verified</string>
+    <string name="ui_delete_version">Delete Version</string>
+    <string name="ui_version_applied">Version switched: %1$s</string>
 </resources>

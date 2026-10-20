@@ -16,7 +16,52 @@ object LyricsOffsetStore {
 
     private fun store(context: Context) = prefs(context, PREFS_NAME)
 
+    private const val KEY_GLOBAL_OFFSET_MS = "global_lyrics_offset_ms"
+    private const val KEY_USE_GLOBAL_OFFSET = "use_global_lyrics_offset"
+
+    fun isGlobalOffsetEnabled(context: Context): Boolean {
+        return store(context).getBoolean(KEY_USE_GLOBAL_OFFSET, false)
+    }
+
+    fun setGlobalOffsetEnabled(context: Context, enabled: Boolean) {
+        store(context).edit {
+            putBoolean(KEY_USE_GLOBAL_OFFSET, enabled)
+        }
+    }
+
+    fun getGlobalOffsetMs(context: Context): Long {
+        return store(context).getLong(KEY_GLOBAL_OFFSET_MS, 0L)
+    }
+
+    fun setGlobalOffsetMs(context: Context, offsetMs: Long): Long {
+        val safeOffset = offsetMs.coerceIn(-MAX_OFFSET_MS, MAX_OFFSET_MS)
+        store(context).edit {
+            putLong(KEY_GLOBAL_OFFSET_MS, safeOffset)
+        }
+        return safeOffset
+    }
+
+    fun saveCurrentOffset(context: Context, identity: SongIdentity, offsetMs: Long, applyToAll: Boolean): Long {
+        val safeOffset = offsetMs.coerceIn(-MAX_OFFSET_MS, MAX_OFFSET_MS)
+        setGlobalOffsetEnabled(context, applyToAll)
+        if (applyToAll) {
+            setGlobalOffsetMs(context, safeOffset)
+        }
+        if (identity.title.isNotBlank()) {
+            val exactKey = offsetKey(identity)
+            val weakKey = weakOffsetKey(identity)
+            store(context).edit {
+                putLong(exactKey, safeOffset)
+                putLong(weakKey, safeOffset)
+            }
+        }
+        return safeOffset
+    }
+
     fun getOffsetMs(context: Context, identity: SongIdentity): Long {
+        if (isGlobalOffsetEnabled(context)) {
+            return getGlobalOffsetMs(context)
+        }
         if (identity.title.isBlank()) return 0L
         val preferences = store(context)
         val exactKey = offsetKey(identity)
@@ -53,6 +98,9 @@ object LyricsOffsetStore {
     }
 
     fun setOffsetMs(context: Context, identity: SongIdentity, offsetMs: Long): Long {
+        if (isGlobalOffsetEnabled(context)) {
+            return getGlobalOffsetMs(context)
+        }
         if (identity.title.isBlank()) return 0L
         val safeOffset = offsetMs.coerceIn(-MAX_OFFSET_MS, MAX_OFFSET_MS)
         val exactKey = offsetKey(identity)

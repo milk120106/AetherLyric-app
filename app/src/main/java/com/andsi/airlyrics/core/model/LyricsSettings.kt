@@ -17,13 +17,17 @@ enum class PlainLyricsSearchSource(val key: String, val supportsWordTiming: Bool
     /** Persisted compatibility value. New UI models local-only behavior with [LyricsSettings.autoSearchOnline]. */
     LOCAL_ONLY("local_only"),
     NETEASE("netease"),
+    QQ("qq"),
+    KUGOU("kugou"),
     MUSIXMATCH("musixmatch"),
+    GENIUS("genius"),
+    AZLYRICS("azlyrics"),
     LRCLIB("lrclib"),
     SPICY("spicy", supportsWordTiming = true);
 
     companion object {
         val default: PlainLyricsSearchSource = NETEASE
-        val onlineSources: List<PlainLyricsSearchSource> = listOf(NETEASE, MUSIXMATCH, LRCLIB, SPICY)
+        val onlineSources: List<PlainLyricsSearchSource> = listOf(NETEASE, QQ, KUGOU, LRCLIB, MUSIXMATCH, GENIUS, AZLYRICS, SPICY)
 
         fun fromKeyOrNull(key: String?): PlainLyricsSearchSource? {
             return entries.firstOrNull { it.key == key }
