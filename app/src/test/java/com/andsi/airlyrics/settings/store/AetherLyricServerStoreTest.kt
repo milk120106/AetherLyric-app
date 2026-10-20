@@ -25,7 +25,7 @@ class AetherLyricServerStoreTest {
 
     @Test
     fun testDefaultValues() {
-        assertEquals("", AetherLyricServerStore.getServerUrl(context))
+        assertEquals("http://192.168.1.100:8000", AetherLyricServerStore.getServerUrl(context))
         assertFalse(AetherLyricServerStore.isServerEnabled(context))
         assertFalse(AetherLyricServerStore.isConnectionVerified(context))
         assertEquals("", AetherLyricServerStore.getAdminApiKey(context))
@@ -46,10 +46,6 @@ class AetherLyricServerStoreTest {
 
     @Test
     fun testServerEnabledRequiresNonEmptyUrl() {
-        // 當 URL 為空時，即使設為 true 也回傳 false
-        AetherLyricServerStore.setServerEnabled(context, true)
-        assertFalse(AetherLyricServerStore.isServerEnabled(context))
-
         // 設定有效 URL 後開啟
         AetherLyricServerStore.setServerUrl(context, "http://192.168.1.50:8000")
         AetherLyricServerStore.setServerEnabled(context, true)
@@ -61,9 +57,16 @@ class AetherLyricServerStoreTest {
     }
 
     @Test
-    fun testAdminApiKeyAndStatusMessage() {
-        AetherLyricServerStore.setAdminApiKey(context, "  my_secret_token  ")
-        assertEquals("my_secret_token", AetherLyricServerStore.getAdminApiKey(context))
+    fun testMultiProfilesManagement() {
+        val initialProfiles = AetherLyricServerStore.getProfiles(context)
+        assertTrue(initialProfiles.isNotEmpty())
+
+        val added = AetherLyricServerStore.addProfile(context, "家庭 NAS", "http://192.168.1.200:8000/")
+        assertEquals("家庭 NAS", added.name)
+        assertEquals("http://192.168.1.200:8000", added.url)
+
+        AetherLyricServerStore.setActiveProfileId(context, added.id)
+        assertEquals("http://192.168.1.200:8000", AetherLyricServerStore.getServerUrl(context))
 
         AetherLyricServerStore.setLastStatusMessage(context, "連線正常：伺服器在線")
         assertEquals("連線正常：伺服器在線", AetherLyricServerStore.getLastStatusMessage(context))

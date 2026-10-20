@@ -95,5 +95,8 @@ internal fun Context.localizedLyricsLookupMessage(error: LyricsLookupException):
         LyricsLookupErrorType.NativeError -> R.string.lyrics_lookup_native_error
         LyricsLookupErrorType.Unknown -> R.string.lyrics_lookup_failed
     }
-    return getString(messageRes, providerName)
+    return runCatching { getString(messageRes, providerName) }.getOrElse {
+        val detail = error.detailMessage.takeIf { it.isNotBlank() } ?: "Error"
+        "$providerName: $detail"
+    }
 }

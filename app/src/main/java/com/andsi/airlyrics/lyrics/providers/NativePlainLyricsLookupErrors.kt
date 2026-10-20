@@ -24,6 +24,9 @@ internal fun <T> Result<T>.recoverNativeLoadFailure(
 ): Result<T> {
     return recoverCatching { error ->
         if (error.isNativeLoadFailure()) {
+            runCatching {
+                android.util.Log.e("NativeLyricsCore", "原生歌詞模組載入失敗 provider=$providerId ($providerName): ${error.message}", error)
+            }
             throw LyricsLookupException(
                 providerId = providerId,
                 providerName = providerName,

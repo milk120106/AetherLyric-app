@@ -542,8 +542,15 @@ internal class MainGraph(
                     message = message
                 )
             }
-            is MainUiEffect.ShowLyricsLookupError ->
-                feedback.showError(activity.localizedLyricsLookupMessage(effect.error))
+            is MainUiEffect.ShowLyricsLookupError -> {
+                val errorMsg = activity.localizedLyricsLookupMessage(effect.error)
+                android.util.Log.e("MainGraph", "ShowLyricsLookupError: provider=${effect.error.providerId}, type=${effect.error.errorType}, msg=$errorMsg", effect.error)
+                if (errorMsg.isNotBlank()) {
+                    feedback.showError(errorMsg)
+                } else {
+                    feedback.showError(R.string.lyrics_lookup_failed)
+                }
+            }
             is MainUiEffect.ShowLyricsImportChoices ->
                 lyricsWorkflow.showImportLyricsDialog(
                     target = effect.target,

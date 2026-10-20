@@ -558,4 +558,29 @@ Word-timed TTML:
     <string name="ui_server_public_status">Server Public Status</string>
     <string name="ui_server_models">Models: %1$s</string>
     <string name="ui_server_queue">Queue: %1$d jobs</string>
+
+    <!-- Restored upstream batch strings -->
+    <string name="ui_batch_selected">Selected: %1$d</string>
+    <string name="ui_batch_select_item">Select %1$s</string>
+    <string name="ui_batch_replace">Import and replace</string>
+    <string name="ui_batch_preview">Matched: %1$d · Skipped: %2$d</string>
+    <string name="ui_batch_mapping">%1$s → %2$s · %3$s</string>
+    <string name="ui_batch_skipped_file">%1$s · %2$s</string>
+    <string name="ui_batch_plain">Plain</string>
+    <string name="ui_batch_word">Word by word</string>
+    <string name="ui_batch_no_match">No match</string>
+    <string name="ui_batch_ambiguous">Ambiguous match</string>
+    <string name="ui_batch_duplicate">Duplicate match</string>
+    <string name="ui_batch_result">Batch results</string>
+    <string name="ui_batch_result_counts">Completed: %1$d · Failed: %2$d · Skipped: %3$d</string>
+    <string name="ui_batch_interrupted">Interrupted. Check the results before retrying.</string>
+    <string name="ui_batch_rollback_failed">Some lyrics could not be restored. Please check.</string>
+    <string name="ui_batch_changed">Content changed. Select again.</string>
+    <string name="ui_multi_select">Select multiple</string>
+    <string name="ui_exit_multi_select">Exit selection</string>
+    <string name="ui_batch_export">Export</string>
+    <string name="ui_batch_export_result">Exported: %1$d · Skipped: %2$d</string>
+    <string name="ui_batch_export_failed">Export failed. Try another location.</string>
+    <string name="ui_batch_export_restricted">Export unavailable</string>
+    <string name="ui_batch_deselect_all">Deselect all</string>
 </resources>

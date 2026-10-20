@@ -71,10 +71,19 @@ internal class SnackbarAirFeedback(
         get() = active?.snackbar
 
     override fun showMessage(@StringRes messageRes: Int) {
-        showMessage(activity.getText(messageRes))
+        val text = activity.getText(messageRes)
+        if (text.isNotBlank()) {
+            showMessage(text)
+        } else {
+            android.util.Log.w("SnackbarAirFeedback", "showMessage called with empty resource ID: $messageRes")
+        }
     }
 
     override fun showMessage(message: CharSequence) {
+        if (message.isBlank()) {
+            android.util.Log.w("SnackbarAirFeedback", "showMessage ignored blank message")
+            return
+        }
         showTransient(
             message = message,
             duration = Snackbar.LENGTH_SHORT,
@@ -83,10 +92,19 @@ internal class SnackbarAirFeedback(
     }
 
     override fun showError(@StringRes messageRes: Int) {
-        showError(activity.getText(messageRes))
+        val text = activity.getText(messageRes)
+        if (text.isNotBlank()) {
+            showError(text)
+        } else {
+            android.util.Log.w("SnackbarAirFeedback", "showError called with empty resource ID: $messageRes")
+        }
     }
 
     override fun showError(message: CharSequence) {
+        if (message.isBlank()) {
+            android.util.Log.w("SnackbarAirFeedback", "showError ignored blank message")
+            return
+        }
         showTransient(
             message = message,
             duration = Snackbar.LENGTH_LONG,
@@ -106,6 +124,7 @@ internal class SnackbarAirFeedback(
         duration: Int,
         fallbackAction: () -> Unit
     ) {
+        if (message.isBlank()) return
         if (!canShow()) return
 
         runOnMainThread {

@@ -16,19 +16,29 @@ internal class ToastAirFeedback(
     private var currentToast: Toast? = null
 
     override fun showMessage(@StringRes messageRes: Int) {
-        showMessage(context.getText(messageRes))
+        val text = context.getText(messageRes)
+        if (text.isNotBlank()) {
+            showMessage(text)
+        }
     }
 
     override fun showMessage(message: CharSequence) {
-        show(message, Toast.LENGTH_SHORT)
+        if (message.isNotBlank()) {
+            show(message, Toast.LENGTH_SHORT)
+        }
     }
 
     override fun showError(@StringRes messageRes: Int) {
-        showError(context.getText(messageRes))
+        val text = context.getText(messageRes)
+        if (text.isNotBlank()) {
+            showError(text)
+        }
     }
 
     override fun showError(message: CharSequence) {
-        show(message, Toast.LENGTH_LONG)
+        if (message.isNotBlank()) {
+            show(message, Toast.LENGTH_LONG)
+        }
     }
 
     override fun dismiss() {
@@ -39,6 +49,7 @@ internal class ToastAirFeedback(
     }
 
     private fun show(message: CharSequence, duration: Int) {
+        if (message.isBlank()) return
         if (!canShow()) return
 
         runOnMainThread {

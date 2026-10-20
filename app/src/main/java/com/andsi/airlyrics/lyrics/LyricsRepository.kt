@@ -232,6 +232,8 @@ internal class LyricsRepositoryEngine(
                 if (error is CancellationException) {
                     throw error
                 }
+                android.util.Log.e("LyricsRepository", "來源 ${source.key} (${provider.name}) 查詢失敗: ${error.message}", error)
+                com.andsi.airlyrics.logging.AppLogger.e("LyricsRepository", "來源 ${source.key} (${provider.name}) 查詢失敗: ${error.message}", error)
                 lookupLogger.logProviderFailure(
                     provider = provider,
                     title = request.title,

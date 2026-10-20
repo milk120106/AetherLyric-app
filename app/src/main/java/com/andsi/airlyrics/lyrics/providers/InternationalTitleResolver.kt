@@ -37,12 +37,14 @@ internal object InternationalTitleResolver {
             }
         } catch (error: CancellationException) {
             throw error
-        } catch (_: LinkageError) {
+        } catch (e: LinkageError) {
             request.cancellationToken?.throwIfCancellationRequested()
+            android.util.Log.e("InternationalTitle", "國際標題原生模組未載入: ${e.message}", e)
             log("fallback=native_unavailable")
             request
         } catch (error: Exception) {
             request.cancellationToken?.throwIfCancellationRequested()
+            android.util.Log.e("InternationalTitle", "國際標題解析異常: ${error.message}", error)
             log("fallback=${error.javaClass.simpleName}")
             request
         }

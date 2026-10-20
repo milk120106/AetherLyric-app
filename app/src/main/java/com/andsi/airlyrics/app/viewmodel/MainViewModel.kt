@@ -38,6 +38,7 @@ import com.andsi.airlyrics.lyrics.LyricsSearchOrigin
 import com.andsi.airlyrics.lyrics.storage.LyricsStorage
 import com.andsi.airlyrics.media.CurrentMediaReader
 import com.andsi.airlyrics.media.model.CurrentMediaInfo
+import kotlinx.coroutines.CancellationException
 import com.andsi.airlyrics.media.toSongIdentity
 import com.andsi.airlyrics.ui.model.RefreshState
 import com.andsi.airlyrics.ui.navigation.Page
@@ -345,16 +346,34 @@ internal class MainViewModel(
                 cancellationToken.throwIfCancellationRequested()
                 if (onlineLyricsSearchToken !== cancellationToken) return@launch
 
+                val songDesc = "${media.title} - ${media.artist}"
                 when (outcome) {
-                    OnlineLyricsSearchOutcome.Saved ->
+                    OnlineLyricsSearchOutcome.Saved -> {
+                        android.util.Log.i("OnlineSearch", "Lyrics successfully saved for $songDesc")
                         showMessage(R.string.ui_online_lyrics_saved)
-                    OnlineLyricsSearchOutcome.NotFound ->
+                    }
+                    OnlineLyricsSearchOutcome.NotFound -> {
+                        android.util.Log.w("OnlineSearch", "No lyrics found for $songDesc")
                         showMessage(R.string.ui_lyrics_not_found)
-                    is OnlineLyricsSearchOutcome.LookupFailed ->
+                    }
+                    is OnlineLyricsSearchOutcome.LookupFailed -> {
+                        android.util.Log.e("OnlineSearch", "Lyrics lookup failed for $songDesc: provider=${outcome.error.providerId}, type=${outcome.error.errorType}, msg=${outcome.error.message}", outcome.error)
+                        com.andsi.airlyrics.logging.AppLogger.e("OnlineSearch", "歌詞檢索失敗: ${outcome.error.message}", outcome.error)
                         uiEffectChannel.trySend(MainUiEffect.ShowLyricsLookupError(outcome.error))
-                    OnlineLyricsSearchOutcome.Failed ->
+                    }
+                    OnlineLyricsSearchOutcome.Failed -> {
+                        android.util.Log.e("OnlineSearch", "Lyrics search failed for $songDesc")
+                        com.andsi.airlyrics.logging.AppLogger.e("OnlineSearch", "歌詞搜尋失敗: $songDesc")
                         showMessage(R.string.ui_online_lyrics_search_failed, error = true)
+                    }
                 }
+            } catch (e: Exception) {
+                if (e !is CancellationException) {
+                    val songDesc = "${media.title} - ${media.artist}"
+                    android.util.Log.e("OnlineSearch", "Unhandled exception during online lyrics search for $songDesc: ${e.message}", e)
+                    com.andsi.airlyrics.logging.AppLogger.e("OnlineSearch", "線上歌詞搜尋異常: ${e.message}", e)
+                }
+                throw e
             } finally {
                 lease.close()
                 if (onlineLyricsSearchToken === cancellationToken) {
