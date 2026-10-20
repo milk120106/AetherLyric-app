@@ -1,7 +1,8 @@
 package com.andsi.airlyrics.app.interaction
 
-import android.util.AtomicFile
 import java.io.File
+import java.nio.file.Files
+import java.nio.file.StandardCopyOption
 import java.util.concurrent.Executors
 import java.util.concurrent.Future
 import org.json.JSONObject
@@ -10,32 +11,44 @@ import org.json.JSONObject
 internal class LyricsDraftStore(private val directory: File) {
     fun write(id: String, text: String): Future<*> = io.submit {
         directory.mkdirs()
-        val file = atomic(id)
-        val stream = file.startWrite()
+        val file = targetFile(id)
+        val temp = File.createTempFile(id, ".tmp", directory)
+        val bytes = JSONObject().put("version", 1).put("text", text).toString().toByteArray(Charsets.UTF_8)
+        temp.writeBytes(bytes)
         try {
-            stream.write(JSONObject().put("version", 1).put("text", text).toString().toByteArray(Charsets.UTF_8))
-            file.finishWrite(stream)
-        } catch (error: Exception) {
-            file.failWrite(stream)
-            throw error
+            Files.move(
+                temp.toPath(),
+                file.toPath(),
+                StandardCopyOption.REPLACE_EXISTING,
+                StandardCopyOption.ATOMIC_MOVE
+            )
+        } catch (_: java.nio.file.AtomicMoveNotSupportedException) {
+            Files.move(
+                temp.toPath(),
+                file.toPath(),
+                StandardCopyOption.REPLACE_EXISTING
+            )
         }
     }
 
     fun read(id: String): Future<String?> = io.submit<String?> {
         runCatching {
-            val json = JSONObject(atomic(id).readFully().toString(Charsets.UTF_8))
+            val file = targetFile(id)
+            if (!file.exists()) return@runCatching null
+            val raw = String(Files.readAllBytes(file.toPath()), Charsets.UTF_8)
+            val json = JSONObject(raw)
             if (json.getInt("version") == 1) json.getString("text") else null
         }.getOrNull()
     }
 
-    fun delete(id: String): Future<*> = io.submit { atomic(id).delete() }
+    fun delete(id: String): Future<*> = io.submit { targetFile(id).delete() }
     fun prune(keep: String?): Future<*> = io.submit {
         directory.listFiles()?.filter { it.name.substringBefore('.') != keep }?.forEach(File::delete)
     }
 
-    private fun atomic(id: String): AtomicFile {
+    private fun targetFile(id: String): File {
         require(id.matches(Regex("[a-zA-Z0-9-]+")))
-        return AtomicFile(File(directory, "$id.json"))
+        return File(directory, "$id.json")
     }
 
     companion object {

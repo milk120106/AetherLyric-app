@@ -51,6 +51,7 @@ internal data class MainScreenState(
     val lyricsChangeSequence: Long = 0L,
     val lyricsDirectoryRevision: Long = 0L,
     val floatingStructureRevision: Long = 0L,
+    val settingsRevision: Long = 0L,
     val pendingLyricsImport: PendingLyricsImport? = null,
     val pendingLyricsOverwrite: PendingLyricsOverwrite? = null
 ) : MainUiState {

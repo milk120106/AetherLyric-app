@@ -78,7 +78,8 @@ internal fun MainUiHost.settingsBackHeaderImpl(
             typeface = Typeface.DEFAULT_BOLD
             setTextColor(colorTextStrong)
         }, endIcon = titleAction))
-        if (subtitle.isNotBlank()) {
+        val isCompact = com.andsi.airlyrics.settings.store.AppSettingsStore.isCompactMode(activity)
+        if (subtitle.isNotBlank() && !isCompact) {
             addView(TextView(activity).apply {
                 text = subtitle
                 textSize = AirUiTokens.TextSize.Body
@@ -123,6 +124,9 @@ internal fun MainUiHost.settingsCategoryCardImpl(
     onClick: () -> Unit
 ): View {
     val activity = this
+    val isCompact = com.andsi.airlyrics.settings.store.AppSettingsStore.isCompactMode(activity)
+    val hideStatus = areStatusPopupsMuted()
+
     return card(activity) {
         orientation = LinearLayout.HORIZONTAL
         gravity = Gravity.CENTER_VERTICAL
@@ -150,8 +154,27 @@ internal fun MainUiHost.settingsCategoryCardImpl(
             orientation = LinearLayout.VERTICAL
             layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
             addView(bigText(activity, title))
-            addView(normalText(activity, subtitle))
-            addView(smallHint(activity, status))
+
+            // 模塊按鈕中間的白色說明文字（例如「未啟用」、「已啟用」等狀態）
+            if (status.isNotBlank() && !hideStatus) {
+                addView(TextView(activity).apply {
+                    text = status
+                    textSize = AirUiTokens.TextSize.BodySmall
+                    typeface = Typeface.DEFAULT_BOLD
+                    setTextColor(colorTextStrong)
+                    setPadding(0, dp(AirUiTokens.Space.Xs), 0, 0)
+                })
+            }
+
+            // 描述文字 (Subtitle) - 簡潔模式時隱藏
+            if (subtitle.isNotBlank() && !isCompact) {
+                addView(TextView(activity).apply {
+                    text = subtitle
+                    textSize = AirUiTokens.TextSize.BodySmall
+                    setTextColor(colorTextMuted)
+                    setPadding(0, dp(AirUiTokens.Space.Xs), 0, 0)
+                })
+            }
         })
 
         addView(airIconView(R.drawable.ic_air_chevron_right, colorAccent).apply {

@@ -77,12 +77,14 @@ internal fun createServerSettingsPage(activity: MainUiHost): View = with(activit
                     })
                 }
                 addView(row)
-                addView(TextView(activity).apply {
-                    text = desc
-                    textSize = AirUiTokens.TextSize.Caption
-                    setTextColor(colorTextMuted)
-                    setPadding(0, dp(AirUiTokens.Space.Xxs), 0, 0)
-                })
+                if (!com.andsi.airlyrics.settings.store.AppSettingsStore.isCompactMode(activity)) {
+                    addView(TextView(activity).apply {
+                        text = desc
+                        textSize = AirUiTokens.TextSize.Caption
+                        setTextColor(colorTextMuted)
+                        setPadding(0, dp(AirUiTokens.Space.Xxs), 0, 0)
+                    })
+                }
             })
         }
     })

@@ -60,10 +60,6 @@ internal fun createMediaPage(activity: MainUiHost, animateContent: Boolean = tru
         container.addView(selectorCard)
     }
 
-    container.addView(spacer(activity, 12))
-    container.addView(createAudioAiTranscriptionCard(activity))
-    container.addView(spacer(activity, 12))
-
     val playersHeading = label(activity, getString(R.string.ui_active_players), colorTextMuted).apply {
         setTag(R.id.interaction_anchor, "media.players.heading")
     }
@@ -92,6 +88,12 @@ internal fun createMediaPage(activity: MainUiHost, animateContent: Boolean = tru
         setTag(R.id.interaction_anchor, "media.refresh")
     }
     container.addView(refreshBtn)
+
+    // AI 音訊歌詞辨識區塊：移至「目前媒體」與「使用中的播放器」下方，且預設隱藏，需在設定頁手動開啟才顯示
+    if (com.andsi.airlyrics.settings.store.AppSettingsStore.isAudioAiTranscriptionEnabled(activity)) {
+        container.addView(spacer(activity, 18))
+        container.addView(createAudioAiTranscriptionCard(activity))
+    }
 
     return com.andsi.airlyrics.ui.layout.ResponsivePage(activity, container, setOf(0, 1), "scroll.MEDIA.root")
 }

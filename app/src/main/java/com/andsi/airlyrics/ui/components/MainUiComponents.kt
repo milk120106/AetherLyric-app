@@ -58,6 +58,7 @@ internal fun scroll(activity: MainUiHost, child: View, animateChildren: Boolean 
 }
 
 internal fun sectionTitle(activity: MainUiHost, title: String, subtitle: String): View  = with(activity) sectionTitle@ {
+    val isCompact = com.andsi.airlyrics.settings.store.AppSettingsStore.isCompactMode(activity)
     return LinearLayout(this).apply {
         orientation = LinearLayout.VERTICAL
         setPadding(0, 0, 0, dp(AirUiTokens.Space.Xl))
@@ -67,12 +68,14 @@ internal fun sectionTitle(activity: MainUiHost, title: String, subtitle: String)
             typeface = Typeface.DEFAULT_BOLD
             setTextColor(colorTextStrong)
         })
-        addView(TextView(activity).apply {
-            text = subtitle
-            textSize = AirUiTokens.TextSize.Body
-            setTextColor(colorTextMuted)
-            setPadding(0, dp(AirUiTokens.Space.Sm), 0, 0)
-        })
+        if (subtitle.isNotBlank() && !isCompact) {
+            addView(TextView(activity).apply {
+                text = subtitle
+                textSize = AirUiTokens.TextSize.Body
+                setTextColor(colorTextMuted)
+                setPadding(0, dp(AirUiTokens.Space.Sm), 0, 0)
+            })
+        }
     }
 }
 
@@ -286,6 +289,9 @@ internal fun smallHint(activity: MainUiHost, text: String): TextView  = with(act
         textSize = AirUiTokens.TextSize.BodySmall
         setTextColor(colorTextMuted)
         setPadding(0, dp(AirUiTokens.Space.Xl), 0, 0)
+        if (com.andsi.airlyrics.settings.store.AppSettingsStore.isCompactMode(activity)) {
+            visibility = View.GONE
+        }
     }
 }
 

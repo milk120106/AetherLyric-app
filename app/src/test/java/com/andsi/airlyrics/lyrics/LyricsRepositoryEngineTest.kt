@@ -389,7 +389,11 @@ class LyricsRepositoryEngineTest {
                 PlainLyricsSearchSource.MUSIXMATCH to musixmatch,
                 PlainLyricsSearchSource.LRCLIB to lrclib
             ),
-            settings = settings(plainLyricsSearchSources = PlainLyricsSearchSource.onlineSources),
+            settings = settings(plainLyricsSearchSources = listOf(
+                PlainLyricsSearchSource.NETEASE,
+                PlainLyricsSearchSource.MUSIXMATCH,
+                PlainLyricsSearchSource.LRCLIB
+            )),
             lookupLogger = logger
         )
 

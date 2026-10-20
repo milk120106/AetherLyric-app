@@ -1,13 +1,14 @@
 package com.andsi.airlyrics.lyrics.storage
 
 import android.content.Context
-import android.util.AtomicFile
 import com.andsi.airlyrics.lyrics.LyricsProviderResult
 import com.andsi.airlyrics.lyrics.parser.LrcParser
 import com.andsi.airlyrics.lyrics.parser.WordByWordLrcParser
 import com.andsi.airlyrics.lyrics.providers.SpicyLyricsParser
 import org.json.JSONObject
 import java.io.File
+import java.nio.file.Files
+import java.nio.file.StandardCopyOption
 import java.security.MessageDigest
 
 /** Private, non-backed-up, bounded-lifetime documents; never use the user's lyrics directory. */
@@ -26,14 +27,15 @@ internal class SpicyLyricsCache(private val directory: File, private val clock: 
     }
     private fun document(key: String): JSONObject? {
         val f = file(key)
+        if (!f.exists()) return null
         return runCatching {
-            val doc = JSONObject(String(AtomicFile(f).readFully(), Charsets.UTF_8))
+            val doc = JSONObject(String(Files.readAllBytes(f.toPath()), Charsets.UTF_8))
             val at = doc.getLong("fetchedAt")
             if (clock() < at || clock() - at >= SpicyLyricsParser.RETENTION_MS) {
-                AtomicFile(f).delete(); LyricsStorage.markContentChanged(); null
+                f.delete(); LyricsStorage.markContentChanged(); null
             } else doc
         }.getOrElse {
-            if (f.exists() || File(f.path + ".bak").exists() || File(f.path + ".new").exists()) { AtomicFile(f).delete(); LyricsStorage.markContentChanged() }
+            if (f.exists()) { f.delete(); LyricsStorage.markContentChanged() }
             null
         }
     }
@@ -65,20 +67,25 @@ internal class SpicyLyricsCache(private val directory: File, private val clock: 
         parsed
     }
     internal fun snapshot(key: String): ByteArray? = synchronized(lock) {
-        if (file(key).exists() || File(file(key).path + ".bak").exists()) AtomicFile(file(key)).readFully() else null
+        val f = file(key)
+        if (f.exists()) Files.readAllBytes(f.toPath()) else null
     }
 
     internal fun restore(key: String, bytes: ByteArray?) = synchronized(lock) {
-        if (bytes == null) AtomicFile(file(key)).delete()
+        if (bytes == null) file(key).delete()
         else write(key, JSONObject(String(bytes, Charsets.UTF_8)))
     }
 
     private fun write(key: String, document: JSONObject) {
         check(directory.isDirectory || directory.mkdirs())
-        val atomic = AtomicFile(file(key))
-        val stream = atomic.startWrite()
-        try { stream.write(document.toString().toByteArray()); atomic.finishWrite(stream) }
-        catch (e: Exception) { atomic.failWrite(stream); throw e }
+        val f = file(key)
+        val temp = File.createTempFile(key.take(16), ".tmp", directory)
+        temp.writeBytes(document.toString().toByteArray(Charsets.UTF_8))
+        try {
+            Files.move(temp.toPath(), f.toPath(), StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE)
+        } catch (_: java.nio.file.AtomicMoveNotSupportedException) {
+            Files.move(temp.toPath(), f.toPath(), StandardCopyOption.REPLACE_EXISTING)
+        }
         LyricsStorage.markContentChanged()
     }
     fun edit(key: String, text: String, word: Boolean): LyricsStorage.LocalLyricsUpdateResult = synchronized(lock) {
@@ -118,7 +125,7 @@ internal class SpicyLyricsCache(private val directory: File, private val clock: 
     }
     fun delete(key: String): Boolean = synchronized(lock) {
         val existed = file(key).exists()
-        AtomicFile(file(key)).delete()
+        file(key).delete()
         if (existed) LyricsStorage.markContentChanged()
         existed
     }

@@ -41,4 +41,8 @@ internal interface SettingsUiHost {
     fun setLanguageMode(mode: String)
     fun areStatusPopupsMuted(): Boolean
     fun setStatusPopupsMuted(muted: Boolean)
+    fun isCompactMode(): Boolean
+    fun setCompactMode(enabled: Boolean)
+    fun isAudioAiTranscriptionEnabled(): Boolean
+    fun setAudioAiTranscriptionEnabled(enabled: Boolean)
 }

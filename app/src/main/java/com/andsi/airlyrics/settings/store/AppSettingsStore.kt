@@ -10,6 +10,7 @@ object AppSettingsStore {
     private const val KEY_STATUS_POPUPS_MUTED = "toaster_muted"
     private const val KEY_COMPACT_MODE = "compact_mode"
     private const val KEY_MEDIA_LYRICS_SELECTOR = "media_lyrics_selector"
+    private const val KEY_AUDIO_AI_TRANSCRIPTION = "audio_ai_transcription_enabled"
 
     private fun store(context: Context) = prefs(context, PREFS_NAME)
 
@@ -35,5 +36,13 @@ object AppSettingsStore {
 
     fun setMediaLyricsSelectorEnabled(context: Context, enabled: Boolean) {
         store(context).setBoolean(KEY_MEDIA_LYRICS_SELECTOR, enabled)
+    }
+
+    fun isAudioAiTranscriptionEnabled(context: Context): Boolean {
+        return store(context).getBoolean(KEY_AUDIO_AI_TRANSCRIPTION, false)
+    }
+
+    fun setAudioAiTranscriptionEnabled(context: Context, enabled: Boolean) {
+        store(context).setBoolean(KEY_AUDIO_AI_TRANSCRIPTION, enabled)
     }
 }

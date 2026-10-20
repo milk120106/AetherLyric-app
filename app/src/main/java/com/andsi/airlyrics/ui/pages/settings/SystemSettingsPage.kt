@@ -34,6 +34,9 @@ internal fun createSystemSettingsPage(activity: MainUiHost): View = with(activit
     // 狀態提示隱藏開關
     container.addView(statusPopupsMuteCard(activity))
 
+    // 三層權限架構卡片 (基礎模式 -> 無障礙模式 -> Shizuku)
+    container.addView(permissionTiersCard(activity))
+
     // 原生系統權限卡片
     container.addView(systemPermissionCard())
 
@@ -234,15 +237,120 @@ private fun statusPopupsMuteCard(activity: MainUiHost): View = with(activity) st
                 setMargins(0, 0, dp(AirUiTokens.Space.Xl + AirUiTokens.Space.Lg), 0)
             }
             addView(bigText(activity, getString(R.string.ui_status_popups_mute)))
+            addView(smallHint(activity, "開啟時隱藏設定模塊狀態提示與懸浮窗更新提示"))
         })
 
         addView(statusPopupsSwitch)
 
         statusPopupsSwitch.setOnCheckedChangeListener { _, checked ->
-            setStatusPopupsMuted(checked)
+            if (checked != areStatusPopupsMuted()) {
+                setStatusPopupsMuted(checked)
+            }
         }
         setOnClickListener {
-            statusPopupsSwitch.isChecked = !statusPopupsSwitch.isChecked
+            statusPopupsSwitch.toggle()
+        }
+    }
+}
+
+private fun permissionTiersCard(activity: MainUiHost): View = with(activity) {
+    return card(activity) {
+        addView(bigText(activity, "三層權限架構"))
+        addView(smallHint(activity, "提供三種層級的媒體狀態偵測能力，可依需求選擇開啟"))
+
+        // 1. 基礎模式 (最上)
+        val isBasicOk = hasNotificationListenerAccess() && overlayPermissionGranted
+        val basicStatus = if (isBasicOk) "正常運作" else "未授權"
+
+        val basicRow = settingRow(
+            activity,
+            name = getString(R.string.ui_tier_basic_status),
+            value = basicStatus
+        )
+        addView(basicRow)
+
+        if (!isBasicOk) {
+            if (!overlayPermissionGranted) {
+                addView(actionButton(activity, "授權懸浮窗權限") {
+                    uiActions.requestOverlayPermission()
+                })
+            }
+            if (!hasNotificationListenerAccess()) {
+                addView(actionButton(activity, "開啟通知存取設定") {
+                    uiActions.openNotificationListenerSettings()
+                })
+            }
+        }
+
+        addView(tierDivider(activity))
+
+        // 2. 無障礙模式 (中間)
+        val isA11yOk = com.andsi.airlyrics.permissions.PermissionTierManager.isAccessibilityEnabled(activity)
+        val isRestricted = com.andsi.airlyrics.permissions.PermissionTierManager.isRestrictedSettingsBlocked(activity)
+        val a11yStatus = if (isA11yOk) "正常運作" else if (isRestricted) "已受系統限制" else "未開啟"
+
+        val a11yRow = settingRow(
+            activity,
+            name = getString(R.string.ui_tier_accessibility_status),
+            value = a11yStatus
+        )
+        addView(a11yRow)
+
+        if (isRestricted) {
+            if (!com.andsi.airlyrics.settings.store.AppSettingsStore.isCompactMode(activity)) {
+                addView(TextView(activity).apply {
+                    text = "Android 13+ 偵測到受限制的設定，請點擊下方按鈕前往「應用程式資訊」，在右上角選單點擊「允許受限制的設定」。"
+                    textSize = AirUiTokens.TextSize.Caption
+                    setTextColor(colorDanger)
+                    setPadding(0, dp(AirUiTokens.Space.Xxs), 0, dp(AirUiTokens.Space.Xxs))
+                })
+            }
+            addView(actionButton(activity, getString(R.string.ui_unlock_restricted_settings)) {
+                com.andsi.airlyrics.permissions.PermissionTierManager.openAppDetailsSettings(activity)
+            })
+        } else if (!isA11yOk) {
+            addView(actionButton(activity, getString(R.string.ui_open_accessibility_settings)) {
+                com.andsi.airlyrics.permissions.PermissionTierManager.openAccessibilitySettings(activity)
+            })
+        }
+
+        addView(tierDivider(activity))
+
+        // 3. Shizuku (最下)
+        val isShizukuOk = com.andsi.airlyrics.permissions.PermissionTierManager.isShizukuAvailableAndGranted(activity)
+        val isShizukuInstalled = com.andsi.airlyrics.permissions.PermissionTierManager.isShizukuInstalled(activity)
+        val shizukuStatus = if (isShizukuOk) "正常運作" else if (isShizukuInstalled) "未授權" else "未安裝"
+
+        val shizukuRow = settingRow(
+            activity,
+            name = getString(R.string.ui_tier_shizuku_status),
+            value = shizukuStatus
+        )
+        addView(shizukuRow)
+
+        if (!isShizukuOk) {
+            if (isShizukuInstalled) {
+                addView(actionButton(activity, getString(R.string.ui_open_dev_settings)) {
+                    com.andsi.airlyrics.permissions.PermissionTierManager.openDevelopmentSettings(activity)
+                })
+            } else {
+                addView(actionButton(activity, "前往取得 Shizuku") {
+                    activity.openUrl("https://shizuku.rikka.app")
+                })
+            }
+        }
+    }
+}
+
+private fun tierDivider(activity: MainUiHost): View = with(activity) {
+    return View(this).apply {
+        setBackgroundColor(colorStroke)
+        alpha = 0.5f
+        layoutParams = LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            dp(AirUiTokens.Stroke.Hairline)
+        ).apply {
+            setMargins(0, dp(AirUiTokens.Space.Lg), 0, dp(AirUiTokens.Space.Sm))
         }
     }
 }

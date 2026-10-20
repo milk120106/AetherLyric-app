@@ -31,11 +31,11 @@ class MainViewModelStateTest : MainViewModelTestBase() {
         viewModel.updateSavedLyricsSearchQuery("artist")
 
         assertTrue(viewModel.navigateBack())
-        assertEquals(SettingsSubPage.LYRICS, viewModel.uiState.value.settingsSubPage)
+        assertEquals(SettingsSubPage.LOCAL_LYRICS, viewModel.uiState.value.settingsSubPage)
 
         val restored = viewModel(handle = handle).uiState.value
         assertEquals(Page.SETTINGS, restored.currentPage)
-        assertEquals(SettingsSubPage.LYRICS, restored.settingsSubPage)
+        assertEquals(SettingsSubPage.LOCAL_LYRICS, restored.settingsSubPage)
         assertTrue(restored.savedLyricsSearchOpen)
         assertEquals("artist", restored.savedLyricsSearchQuery)
 

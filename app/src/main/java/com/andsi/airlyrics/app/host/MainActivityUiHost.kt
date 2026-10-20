@@ -523,6 +523,21 @@ internal class MainActivityUiHost(
     override fun setStatusPopupsMuted(muted: Boolean) {
         AppSettingsStore.setStatusPopupsMuted(this, muted)
         if (muted) graph.feedback.dismiss()
+        graph.viewModel.notifySettingsChanged()
+    }
+
+    override fun isCompactMode(): Boolean = AppSettingsStore.isCompactMode(this)
+
+    override fun setCompactMode(enabled: Boolean) {
+        AppSettingsStore.setCompactMode(this, enabled)
+        graph.viewModel.notifySettingsChanged()
+    }
+
+    override fun isAudioAiTranscriptionEnabled(): Boolean = AppSettingsStore.isAudioAiTranscriptionEnabled(this)
+
+    override fun setAudioAiTranscriptionEnabled(enabled: Boolean) {
+        AppSettingsStore.setAudioAiTranscriptionEnabled(this, enabled)
+        graph.viewModel.notifySettingsChanged()
     }
 
     fun toggleThemeMode() {

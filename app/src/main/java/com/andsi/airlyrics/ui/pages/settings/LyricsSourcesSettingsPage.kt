@@ -39,8 +39,8 @@ internal fun createLyricsSourcesSettingsPage(activity: MainUiHost): View = with(
         )
     )
 
-    // 1. 來源排序與勾選卡片 (現有排序卡片)
-    container.addView(createLyricsSourceOrderCard(activity, settings))
+    // 1. 來源排序與勾選卡片 (顯示最近使用/啟用的前幾個來源，點擊「更多」彈出完整選單)
+    container.addView(createLyricsSourceOrderCard(activity, settings, maxDisplayed = 4))
 
     // 2. 自訂 API Key (BYOK) 卡片
     container.addView(card(activity) {

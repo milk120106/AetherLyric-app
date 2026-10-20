@@ -139,6 +139,10 @@ internal class MainViewModel(
         updateState { it.copy(settingsSubPage = subPage) }
     }
 
+    fun notifySettingsChanged() {
+        updateState { it.copy(settingsRevision = it.settingsRevision + 1) }
+    }
+
     fun navigateBack(): Boolean {
         val state = _uiState.value
         if (state.currentPage != Page.SETTINGS || state.settingsSubPage == SettingsSubPage.HOME) {

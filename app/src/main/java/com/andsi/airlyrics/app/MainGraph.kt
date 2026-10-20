@@ -454,8 +454,11 @@ internal class MainGraph(
         } && (overlayPermissionChanged || postNotificationsChanged ||
             notificationListenerChanged || usageStatsChanged)
 
+        val settingsChanged = previous.settingsRevision != latest.settingsRevision
+
         val rebuildReason = when {
             permissionRebuildRequired -> PageRebuildReason.PERMISSION_CHANGED
+            settingsChanged -> PageRebuildReason.SETTINGS_NAVIGATION
             latest.currentPage == Page.SETTINGS &&
                 latest.settingsSubPage == SettingsSubPage.LYRICS &&
                 lyricsDirectoryChanged -> PageRebuildReason.LYRICS_DIRECTORY_CHANGED

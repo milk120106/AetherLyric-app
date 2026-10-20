@@ -1,9 +1,12 @@
 package com.andsi.airlyrics.ui.pages.settings
 
+import android.graphics.Typeface
+import android.graphics.drawable.GradientDrawable
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
 import android.widget.LinearLayout
+import android.widget.TextView
 import com.andsi.airlyrics.ui.state.confirmOperation
 import com.andsi.airlyrics.ui.model.ConfirmationAction
 import com.andsi.airlyrics.R
@@ -14,6 +17,12 @@ import com.andsi.airlyrics.ui.components.*
 import com.andsi.airlyrics.ui.model.LyricsSettingsUiState
 import com.andsi.airlyrics.ui.model.MainUiHost
 import com.andsi.airlyrics.design.tokens.AirUiTokens
+import com.andsi.airlyrics.ui.theme.colorAccent
+import com.andsi.airlyrics.ui.theme.colorOnAccent
+import com.andsi.airlyrics.ui.theme.colorStroke
+import com.andsi.airlyrics.ui.theme.colorSurfaceLight
+import com.andsi.airlyrics.ui.theme.colorTextMuted
+import com.andsi.airlyrics.ui.theme.colorTextStrong
 
 internal fun createLyricsSettingsPage(activity: MainUiHost): View  = with(activity) createLyricsSettingsPage@ {
     val container = pageContainer(activity, animateChanges = false)
@@ -113,12 +122,17 @@ internal fun createLyricsSettingsPage(activity: MainUiHost): View  = with(activi
 
 internal fun createLyricsSourceOrderCard(
     activity: MainUiHost,
-    settings: LyricsSettingsUiState
+    settings: LyricsSettingsUiState,
+    maxDisplayed: Int? = null
 ): View = with(activity) {
     card(activity) {
         var selectedSources = settings.selectedPlainLyricsSources.distinct()
 
         addView(bigText(activity, getString(R.string.ui_plain_lyrics_source)))
+        if (maxDisplayed != null) {
+            addView(smallHint(activity, "顯示常用來源，點擊「更多來源…」可彈出選單調整完整排序與啟用狀態"))
+        }
+
         lateinit var refreshSourceOptions: (Boolean) -> Unit
         val sourceButtons = settings.plainLyricsSourceOptions.associateWith { source ->
             LyricsSourceOptionButton(
@@ -147,10 +161,11 @@ internal fun createLyricsSourceOrderCard(
                     fullTitle = localizedPlainLyricsSourceTitle(source)
                 )
             }
-            val displayedSources = orderedLyricsSourceOptions(
+            val orderedSources = orderedLyricsSourceOptions(
                 selectedSources = selectedSources,
                 sourceOptions = settings.plainLyricsSourceOptions
             )
+            val displayedSources = if (maxDisplayed != null) orderedSources.take(maxDisplayed) else orderedSources
             sourceGrid.setSourceOrder(
                 orderedButtons = displayedSources.map(sourceButtons::getValue),
                 animate = animateOrder
@@ -159,7 +174,112 @@ internal fun createLyricsSourceOrderCard(
 
         addView(sourceGrid)
         refreshSourceOptions(false)
+
+        if (maxDisplayed != null) {
+            // 更多來源按鈕：點擊後彈出選單 Dialog
+            addView(actionButton(activity, "更多來源…") {
+                showAllLyricsSourcesDialog(activity, settings.plainLyricsSourceOptions) { updated ->
+                    selectedSources = updated
+                    refreshSourceOptions(true)
+                }
+            })
+        }
     }
+}
+
+/**
+ * 彈窗選單 (Dialog) 管理所有歌詞來源與啟用排序
+ */
+internal fun showAllLyricsSourcesDialog(
+    activity: MainUiHost,
+    allOptions: List<PlainLyricsSearchSource>,
+    onChanged: (List<PlainLyricsSearchSource>) -> Unit
+) = with(activity) {
+    showAirDialog(
+        title = "歌詞來源管理與排序",
+        message = "點擊來源以勾選或停用，已啟用的來源將按優先順序進行檢索",
+        positiveText = getString(R.string.ui_ok),
+        body = {
+            var currentSelected = lyricsSettingsState().selectedPlainLyricsSources.distinct()
+            val listContainer = LinearLayout(activity).apply {
+                orientation = LinearLayout.VERTICAL
+            }
+            addView(listContainer)
+
+            fun renderItems() {
+                listContainer.removeAllViews()
+                val ordered = orderedLyricsSourceOptions(currentSelected, allOptions)
+                ordered.forEach { source ->
+                    val isEnabled = source in currentSelected
+                    val priority = if (isEnabled) currentSelected.indexOf(source) + 1 else null
+
+                    val row = LinearLayout(activity).apply {
+                        orientation = LinearLayout.HORIZONTAL
+                        gravity = Gravity.CENTER_VERTICAL
+                        isClickable = true
+                        isFocusable = true
+                        enableSoftPressFeedback(AirUiTokens.Motion.DefaultPressScale)
+                        setPadding(
+                            dp(AirUiTokens.Space.CardH),
+                            dp(AirUiTokens.Space.CardV),
+                            dp(AirUiTokens.Space.CardH),
+                            dp(AirUiTokens.Space.CardV)
+                        )
+                        background = GradientDrawable().apply {
+                            cornerRadius = dp(AirUiTokens.Radius.Sm).toFloat()
+                            setColor(if (isEnabled) colorSurfaceLight else android.graphics.Color.TRANSPARENT)
+                            setStroke(dp(AirUiTokens.Stroke.Hairline), if (isEnabled) colorAccent else colorStroke)
+                        }
+                        val params = LinearLayout.LayoutParams(
+                            ViewGroup.LayoutParams.MATCH_PARENT,
+                            ViewGroup.LayoutParams.WRAP_CONTENT
+                        ).apply {
+                            setMargins(0, dp(AirUiTokens.Space.Xs), 0, dp(AirUiTokens.Space.Xs))
+                        }
+                        layoutParams = params
+
+                        addView(TextView(activity).apply {
+                            text = if (priority != null) "#$priority" else "-"
+                            textSize = AirUiTokens.TextSize.BodySmall
+                            typeface = Typeface.DEFAULT_BOLD
+                            setTextColor(if (isEnabled) colorAccent else colorTextMuted)
+                            layoutParams = LinearLayout.LayoutParams(dp(36), ViewGroup.LayoutParams.WRAP_CONTENT)
+                        })
+
+                        addView(TextView(activity).apply {
+                            text = localizedPlainLyricsSourceTitle(source)
+                            textSize = AirUiTokens.TextSize.Body
+                            typeface = if (isEnabled) Typeface.DEFAULT_BOLD else Typeface.DEFAULT
+                            setTextColor(if (isEnabled) colorTextStrong else colorTextMuted)
+                            layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+                        })
+
+                        addView(TextView(activity).apply {
+                            text = if (isEnabled) "已啟用" else "未啟用"
+                            textSize = AirUiTokens.TextSize.Caption
+                            typeface = Typeface.DEFAULT_BOLD
+                            setTextColor(if (isEnabled) colorOnAccent else colorTextMuted)
+                            setPadding(dp(AirUiTokens.Space.Sm), dp(AirUiTokens.Space.Xxs), dp(AirUiTokens.Space.Sm), dp(AirUiTokens.Space.Xxs))
+                            background = GradientDrawable().apply {
+                                cornerRadius = dp(AirUiTokens.Radius.Pill).toFloat()
+                                setColor(if (isEnabled) colorAccent else colorSurfaceLight)
+                            }
+                        })
+
+                        setOnClickListener {
+                            currentSelected = toggleOrderedPlainLyricsSource(currentSelected, source)
+                            uiActions.setPlainLyricsSources(currentSelected)
+                            renderItems()
+                            onChanged(currentSelected)
+                        }
+                    }
+                    listContainer.addView(row)
+                }
+            }
+
+            renderItems()
+        }
+    )
 }
 
 internal fun toggleOrderedPlainLyricsSource(

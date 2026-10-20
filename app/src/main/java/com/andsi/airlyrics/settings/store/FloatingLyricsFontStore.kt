@@ -45,6 +45,10 @@ object FloatingLyricsFontStore {
 
     private val typefaceCache = LruCache<String, Typeface>(12)
 
+    internal fun clearCache() {
+        typefaceCache.evictAll()
+    }
+
     fun importFont(context: Context, uri: Uri): ImportResult {
         val displayName = documentDisplayName(context, uri)
         if (!isSupportedFontFileName(displayName)) return ImportResult.UnsupportedFormat
@@ -54,7 +58,9 @@ object FloatingLyricsFontStore {
 
         val directory = fontDirectory(context)
         if (!directory.exists() && !directory.mkdirs()) return ImportResult.ReadFailed
-        val temporary = File(directory, TEMP_FONT_FILE)
+        val temporary = runCatching {
+            File.createTempFile("font_import_", ".tmp", directory)
+        }.getOrElse { File(directory, TEMP_FONT_FILE) }
 
         return try {
             val input = context.contentResolver.openInputStream(uri) ?: return ImportResult.ReadFailed
@@ -269,16 +275,11 @@ object FloatingLyricsFontStore {
     }
 
     private fun replaceCustomFontAtomically(source: File, destination: File): Boolean {
-        val atomicFile = AtomicFile(destination)
-        val output = runCatching { atomicFile.startWrite() }.getOrNull() ?: return false
-        return try {
-            source.inputStream().use { it.copyTo(output) }
-            atomicFile.finishWrite(output)
+        destination.parentFile?.mkdirs()
+        return runCatching {
+            source.copyTo(destination, overwrite = true)
             true
-        } catch (_: Exception) {
-            atomicFile.failWrite(output)
-            false
-        }
+        }.getOrDefault(false)
     }
 
     private fun documentDisplayName(context: Context, uri: Uri): String {
@@ -319,6 +320,7 @@ object FloatingLyricsFontStore {
     private fun sanitizeDisplayName(value: String): String {
         return value
             .substringAfterLast('/')
+            .substringAfterLast('\\')
             .filterNot { it.isISOControl() }
             .trim()
             .take(120)

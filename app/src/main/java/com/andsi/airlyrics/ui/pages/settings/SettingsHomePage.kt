@@ -171,18 +171,57 @@ internal fun createSettingsHomePage(activity: MainUiHost): View = with(activity)
                 isChecked = isCompact
                 applyAirThemeTint(activity)
                 setOnCheckedChangeListener { _, checked ->
-                    AppSettingsStore.setCompactMode(activity, checked)
+                    if (checked != activity.isCompactMode()) {
+                        activity.setCompactMode(checked)
+                    }
                 }
             }
             addView(compactSwitch)
 
             setOnClickListener {
-                compactSwitch.isChecked = !compactSwitch.isChecked
+                compactSwitch.toggle()
             }
         }
     )
 
-    // 4. 子頁面入口卡片清單 (透過 AdaptiveGridLayout 網格佈局)
+    // 4. 媒體頁 AI 音訊歌詞辨識開關卡片 (預設關閉，需手動開啟)
+    val isAiTranscriptionEnabled = activity.isAudioAiTranscriptionEnabled()
+    container.addView(
+        card(activity) {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            isClickable = true
+            isFocusable = true
+            enableSoftPressFeedback(AirUiTokens.Motion.DefaultPressScale)
+
+            val infoLayout = LinearLayout(activity).apply {
+                orientation = LinearLayout.VERTICAL
+                layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply {
+                    setMargins(0, 0, dp(AirUiTokens.Space.Xl), 0)
+                }
+                addView(bigText(activity, "媒體頁 AI 歌詞辨識"))
+                addView(smallHint(activity, "在媒體播放頁面下方顯示音訊上傳與影片網址 AI 辨識區塊"))
+            }
+            addView(infoLayout)
+
+            val aiSwitch = SwitchCompat(activity).apply {
+                isChecked = isAiTranscriptionEnabled
+                applyAirThemeTint(activity)
+                setOnCheckedChangeListener { _, checked ->
+                    if (checked != activity.isAudioAiTranscriptionEnabled()) {
+                        activity.setAudioAiTranscriptionEnabled(checked)
+                    }
+                }
+            }
+            addView(aiSwitch)
+
+            setOnClickListener {
+                aiSwitch.toggle()
+            }
+        }
+    )
+
+    // 5. 子頁面入口卡片清單 (透過 AdaptiveGridLayout 網格佈局)
     val subpageGrid = AdaptiveGridLayout(
         activity,
         2,
@@ -195,7 +234,7 @@ internal fun createSettingsHomePage(activity: MainUiHost): View = with(activity)
     subpageGrid.addView(
         settingsCategoryCard(
             title = getString(R.string.ui_server_subpage_title),
-            subtitle = if (isCompact) "" else getString(R.string.ui_server_subpage_desc),
+            subtitle = getString(R.string.ui_server_subpage_desc),
             status = if (AetherLyricServerStore.isServerEnabled(activity)) "雙引擎啟用" else "未啟用",
             iconRes = R.drawable.ic_air_sync_alt
         ) {
@@ -207,7 +246,7 @@ internal fun createSettingsHomePage(activity: MainUiHost): View = with(activity)
     subpageGrid.addView(
         settingsCategoryCard(
             title = getString(R.string.ui_sources_subpage_title),
-            subtitle = if (isCompact) "" else getString(R.string.ui_sources_subpage_desc),
+            subtitle = getString(R.string.ui_sources_subpage_desc),
             status = localizedPlainLyricsSourceList(lyricsSettings.selectedPlainLyricsSources),
             iconRes = R.drawable.ic_air_music_note
         ) {
@@ -219,7 +258,7 @@ internal fun createSettingsHomePage(activity: MainUiHost): View = with(activity)
     subpageGrid.addView(
         settingsCategoryCard(
             title = getString(R.string.ui_local_lyrics_subpage_title),
-            subtitle = if (isCompact) "" else getString(R.string.ui_local_lyrics_subpage_desc),
+            subtitle = getString(R.string.ui_local_lyrics_subpage_desc),
             status = if (lyricsSettings.autoSaveLocal) getString(R.string.ui_auto_save) else getString(R.string.ui_no_auto_save),
             iconRes = R.drawable.ic_air_lyrics
         ) {
@@ -231,7 +270,7 @@ internal fun createSettingsHomePage(activity: MainUiHost): View = with(activity)
     subpageGrid.addView(
         settingsCategoryCard(
             title = getString(R.string.ui_external_control_subpage_title),
-            subtitle = if (isCompact) "" else getString(R.string.ui_external_control_subpage_desc),
+            subtitle = getString(R.string.ui_external_control_subpage_desc),
             status = if (ExternalControlStore.isIntentApiEnabled(activity)) "Intent 啟用" else "已停用",
             iconRes = R.drawable.ic_air_shield
         ) {
@@ -243,7 +282,7 @@ internal fun createSettingsHomePage(activity: MainUiHost): View = with(activity)
     subpageGrid.addView(
         settingsCategoryCard(
             title = getString(R.string.ui_system),
-            subtitle = if (isCompact) "" else getString(R.string.ui_overlay_and_notification_permissions),
+            subtitle = getString(R.string.ui_overlay_and_notification_permissions),
             status = permissionSummary(),
             iconRes = R.drawable.ic_air_shield
         ) {
@@ -255,7 +294,7 @@ internal fun createSettingsHomePage(activity: MainUiHost): View = with(activity)
     subpageGrid.addView(
         settingsCategoryCard(
             title = getString(R.string.ui_about),
-            subtitle = if (isCompact) "" else getString(R.string.ui_version_project_link_and_changelog),
+            subtitle = getString(R.string.ui_version_project_link_and_changelog),
             status = "AetherLyric ${getAppVersionName()}",
             iconRes = R.drawable.ic_air_info
         ) {

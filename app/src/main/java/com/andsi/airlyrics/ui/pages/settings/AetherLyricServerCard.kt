@@ -18,6 +18,7 @@ import com.andsi.airlyrics.R
 import com.andsi.airlyrics.design.tokens.AirUiTokens
 import com.andsi.airlyrics.network.aether.AetherLyricApiClient
 import com.andsi.airlyrics.settings.store.AetherLyricServerStore
+import com.andsi.airlyrics.settings.store.AppSettingsStore
 import com.andsi.airlyrics.settings.store.ServerProfile
 import com.andsi.airlyrics.ui.components.*
 import com.andsi.airlyrics.ui.model.MainUiHost
@@ -39,6 +40,9 @@ internal fun createAetherLyricServerCard(activity: MainUiHost): View = with(acti
             textSize = AirUiTokens.TextSize.BodySmall
             setTextColor(colorTextMuted)
             setPadding(0, dp(AirUiTokens.Space.Sm), 0, 0)
+            if (AppSettingsStore.isCompactMode(activity)) {
+                visibility = View.GONE
+            }
         }
         addView(descView)
 
