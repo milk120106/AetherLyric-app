@@ -1,62 +1,92 @@
-# Privacy Policy
+# 隱私權政策 (Privacy Policy)
 
-[English](PRIVACY.md) · [简体中文](PRIVACY.zh-CN.md)
+[繁體中文](PRIVACY.md) · [简体中文](PRIVACY.zh-CN.md) · [English](PRIVACY.en.md)
 
-AirLyrics is designed to show floating synced lyrics on Android. The app does not collect, upload, sell, or share personal data.
+**AetherLyric-app** 是一款專為 Android 設計的開源懸浮同步歌詞應用程式。本應用程式秉持極致隱私保護原則，**絕不會收集、上傳、出售或共享使用者的任何個人資料**。
 
-## Data collection
+---
 
-AirLyrics does not collect personal data.
+## 1. 資料收集原則 (Data Collection)
 
-AirLyrics does not use analytics, advertising SDKs, tracking SDKs, account systems, or crash-reporting services.
+- **不收集個人資料**：AetherLyric-app 不會收集使用者之任何個人身份識別資訊（如姓名、電子郵件、電話號碼、設備唯一識別碼等）。
+- **無追蹤與廣告元件**：本應用程式不包含任何第三方統計分析 SDK、廣告 SDK、使用者追蹤 SDK、帳號登入系統或崩潰自動回報服務。
 
-## Permissions
+---
 
-AirLyrics asks for the following Android permissions only when they are needed for app features:
+## 2. Android 權限使用說明 (Permissions)
 
-| Permission / access     | Purpose                                                                              |
-|-------------------------|--------------------------------------------------------------------------------------|
-| Display over other apps | Shows the floating lyrics window above other apps                                    |
-| Notification access     | Detects current media playback information from local notifications / media sessions |
-| Notifications           | Keeps the foreground floating lyrics service visible to Android                      |
-| Usage access            | Checks whether apps selected in Display scope are visible (Android 10+)               |
-| Internet access         | Searches lyrics online when the user uses online lyrics search                       |
-| File picker             | Lets the user import local lyrics files                                              |
+AetherLyric-app 僅在實現核心功能所需時，才會向系統申請下列權限：
 
-Notification access is used locally on the device to detect media playback metadata such as the playing app, title, artist, album, playback state, and available media controls. AirLyrics does not upload notification content.
+| 權限項目 | 權限類型 | 用途說明 |
+| :--- | :--- | :--- |
+| **懸浮視窗權限**<br>`SYSTEM_ALERT_WINDOW` | 系統懸浮窗 | 於其他應用程式頂層顯示同步滾動之懸浮歌詞視窗。 |
+| **通知存取權限**<br>`NotificationListenerService` | 媒體通知監聽 | 於裝置本機即時偵測播放中的音樂曲目資訊（歌名、歌手、專輯、封面與播放狀態）。**絕不上傳或紀錄任何私人通訊通知內容**。 |
+| **前台服務通知**<br>`POST_NOTIFICATIONS` | 系統通知 | 讓 Android 系統維持懸浮歌詞前台服務穩定運行，避免背景運作時遭系統中斷。 |
+| **使用情況存取權限**<br>`PACKAGE_USAGE_STATS` | 可選權限 | 僅於本機用於「顯示範圍 (Display Scope)」功能，判斷使用者所勾選之 App 是否正處於前台可見狀態。**絕不讀取應用程式內容，亦不紀錄使用數據**。 |
+| **網路存取權限**<br>`INTERNET` | 網路連線 | 於使用者執行線上歌詞搜尋或雙引擎轉錄時，向歌詞提供商或自架伺服器發送查詢請求。 |
+| **無障礙服務權限**<br>`AccessibilityService` | 可選權限 | 針對未完整實作標準 MediaSession 協議之影音 App（如 YouTube、Bilibili），於本機輔助偵測播放進度與狀態。**絕不記錄任何鍵盤輸入或畫面隱私內容**。 |
+| **Shizuku 存取權限** | 可選權限 | 透過使用者已安裝並授權之 Shizuku 進行高權限免無障礙之媒體偵測。純本機程序間通訊，不涉及任何外連行為。 |
+| **檔案選取器**<br>`ACTION_OPEN_DOCUMENT` | 儲存存取 | 允許使用者手動選取本機音檔進行 AI 辨識、匯入自訂字型或匯入/匯出本機 LRC 歌詞檔。 |
 
-Usage access is optional and used locally only for Display scope. AirLyrics does not read app content or upload usage data.
+---
 
-## Local data
+## 3. 本地資料儲存 (Local Data Storage)
 
-AirLyrics may store app settings, selected media source information, Display scope app selections, local lyrics records, cached lyrics, and recent lyrics download records on the device.
+- 本應用程式會在裝置本機儲存以下資料：
+  - 應用程式設定與介面偏好（主題色彩、簡潔模式開關等）。
+  - 自架 AetherLyric 伺服器設定檔（伺服器名稱與 URL）。
+  - 歌詞來源之排序、啟用狀態與自訂 API 金鑰 (BYOK)。
+  - 本地快取歌詞檔、多版本歌詞庫與自訂時間軸偏移量記錄。
+  - 應用程式執行日誌（AppLogger，僅保存在 RAM 與本機臨時儲存空間）。
+- **上述所有資料均完全保留於使用者裝置本機**。除非使用者主動透過系統分享、匯出功能或第三方工具進行傳輸，否則本應用程式絕不會主動將其傳送至任何遠端伺服器。
 
-This data is used only for app functionality and remains on the user's device unless the user exports, shares, backs up, or otherwise transfers it using system features or third-party tools.
+---
 
-## Online lyrics search
+## 4. 聯網歌詞搜尋與自架 AI 伺服器 (Online Search & Dual-Engine Server)
 
-When the user searches lyrics online, AirLyrics sends the search request required by the lyrics provider. This may include song-related metadata such as title, artist, album, and duration.
+- **線上歌詞搜尋**：
+  - 當使用者搜尋線上歌詞時，應用程式會將查詢所需的曲目元資料（例如歌名、歌手、專輯名稱與歌曲長度）發送至對應的歌詞提供商（如網易雲音樂、QQ 音樂、酷狗音樂、LRCLIB、Musixmatch、Genius、AZLyrics 等）。
+  - 本應用程式在發出之請求中**絕不加入任何個人識別標籤、設備識別碼或廣告追蹤資訊**。
+- **Spicy Lyrics 逐字歌詞服務**：
+  - 若啟用 Spicy Lyrics，應用程式會向 Spotify 發送歌曲資訊以比對曲目，並向 Spicy Lyrics API 請求動態歌詞。
+  - 取得之歌詞與微調內容存放在不參與系統備份的私有目錄中，最長保存 30 天，到期自動清理。
+- **自架 AetherLyric-server 引擎**：
+  - 當使用者啟用雙引擎模式並設定自架伺服器位址時，使用者主動選取的音訊檔案、純文字歌詞或輸入之影片網址，將直接發送至**使用者指定的自架伺服器**執行轉錄或對齊（例如 POST `/api/v1/align`）。
+  - **AetherLyric 開發團隊不維護任何中央雲端伺服器**，無法存取、截獲亦不擁有任何使用者傳送至自架伺服器的音訊與文本內容。
 
-AirLyrics does not add personal identifiers, accounts, analytics identifiers, or advertising identifiers to these requests.
+---
 
-When Spicy Lyrics is selected, AirLyrics sends the song title to Spotify to identify the recording, then sends its Spotify track ID to the Spicy Lyrics API. Requests use the app's publishable API key. These services receive normal network information such as the requesting IP address. No AirLyrics server is involved.
+## 5. 外部控制與廣播 Intent API 安全性 (External Control)
 
-Spicy lyrics and any edits are stored in private app storage excluded from backup, for at most 30 days of use after acquisition. Expired content is unavailable and is removed on access, app startup or scheduled cleanup. Android may delay scheduled cleanup while the app is stopped. AirLyrics does not offer file export or sharing for this content.
+- AetherLyric-app 支援透過標準 Android Broadcast Intent 接收外部自動化指令（如顯示/隱藏懸浮窗、載入歌詞）。
+- 為了保障系統安全性：
+  - 開啟 Intent API 前須經過明確免責聲明確認。
+  - 未知應用程式之調用預設採取「拒絕」處置。
+  - 提供獨立的應用程式白名單與黑名單權限管理介面，由使用者全權決定允許調用之應用程式。
 
-## Third-party services
+---
 
-AirLyrics currently uses online lyrics providers only for lyrics search. Those providers may receive the search request needed to return lyrics. Their own privacy practices are controlled by those providers.
+## 6. 第三方服務與工具 (Third-Party Services)
 
-## Children
+- 本應用程式僅在使用者主動觸發相關功能時，與外部服務（歌詞提供商、自架伺服器或本機已安裝之輔助工具如 YTDLnis）進行交互。
+- 各第三方歌詞來源服務均具備其各自獨立的隱私政策，其資料處理規範由各該服務商自行負責。
 
-AirLyrics is not designed to collect personal data from anyone, including children.
+---
 
-## Changes
+## 7. 兒童隱私保護 (Children's Privacy)
 
-This privacy policy may be updated when AirLyrics changes how permissions, local storage, or online lyrics search work.
+本應用程式不針對任何特定年齡層收集資料，亦不會主動或蓄意收集包含兒童在內之任何個人隱私資訊。
 
-## Contact
+---
 
-For questions or issues, please use GitHub Issues:
+## 8. 政策變更 (Changes to this Policy)
 
-https://github.com/AirLyrics/AirLyrics/issues
+若因功能新增、架構升級或法規要求而調整隱私政策，變更內容將即時更新於本開源專案倉庫。
+
+---
+
+## 9. 聯絡與回饋 (Contact)
+
+若對本隱私權政策或資料安全有任何疑問、建議或漏洞回報，請透過 GitHub Issues 與我們聯繫：
+
+[https://github.com/milk120106/AetherLyric-app/issues](https://github.com/milk120106/AetherLyric-app/issues)
