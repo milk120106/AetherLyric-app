@@ -9,7 +9,6 @@ import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.appcompat.widget.SwitchCompat
 import com.andsi.airlyrics.R
-import com.andsi.airlyrics.core.model.LyricsContentDisplayMode
 import com.andsi.airlyrics.design.tokens.AirUiTokens
 import com.andsi.airlyrics.external.ExternalControlStore
 import com.andsi.airlyrics.i18n.localizedPlainLyricsSourceList
@@ -103,64 +102,6 @@ internal fun createSettingsHomePage(activity: MainUiHost): View = with(activity)
                 addView(translateSwitch)
             }
             addView(googleTranslateRow)
-
-            // 歌詞顯示格式快速切換列（僅原文 / 僅翻譯 / 雙語對照）
-            addView(normalText(activity, "歌詞顯示格式").apply {
-                setPadding(0, dp(AirUiTokens.Space.Xs), 0, dp(AirUiTokens.Space.Xs))
-            })
-            var currentDisplayMode = lyricsContentDisplayMode()
-            val modeButtonsRow = LinearLayout(activity).apply {
-                orientation = LinearLayout.HORIZONTAL
-                layoutParams = LinearLayout.LayoutParams(
-                    ViewGroup.LayoutParams.MATCH_PARENT,
-                    ViewGroup.LayoutParams.WRAP_CONTENT
-                )
-            }
-            val modeButtons = mutableMapOf<LyricsContentDisplayMode, TextView>()
-            fun refreshModeButtons() {
-                modeButtons.forEach { (mode, btn) ->
-                    val selected = mode == currentDisplayMode
-                    btn.setTextColor(if (selected) colorAccent else colorTextStrong)
-                    btn.background = GradientDrawable().apply {
-                        cornerRadius = dp(AirUiTokens.Radius.Sm).toFloat()
-                        setColor(colorSurfaceLight)
-                        setStroke(
-                            dp(if (selected) AirUiTokens.Stroke.Selected else AirUiTokens.Stroke.Hairline),
-                            if (selected) colorAccent else colorStroke
-                        )
-                    }
-                }
-            }
-            val displayModes = listOf(
-                LyricsContentDisplayMode.ORIGINAL_ONLY to "僅原文",
-                LyricsContentDisplayMode.TRANSLATION_ONLY to "僅翻譯",
-                LyricsContentDisplayMode.ORIGINAL_WITH_TRANSLATION to "雙語對照"
-            )
-            displayModes.forEach { (mode, label) ->
-                val btn = TextView(activity).apply {
-                    text = label
-                    textSize = AirUiTokens.TextSize.BodySmall
-                    typeface = Typeface.DEFAULT_BOLD
-                    gravity = Gravity.CENTER
-                    setPadding(dp(8), dp(AirUiTokens.Space.Sm), dp(8), dp(AirUiTokens.Space.Sm))
-                    layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply {
-                        setMargins(dp(2), 0, dp(2), 0)
-                    }
-                    isClickable = true
-                    isFocusable = true
-                    setOnClickListener {
-                        currentDisplayMode = mode
-                        setLyricsContentDisplayMode(mode)
-                        notifyFloatingStyleChanged()
-                        uiActions.reloadFloatingLyrics()
-                        refreshModeButtons()
-                    }
-                }
-                modeButtons[mode] = btn
-                modeButtonsRow.addView(btn)
-            }
-            refreshModeButtons()
-            addView(modeButtonsRow)
         }
     )
 
@@ -189,7 +130,7 @@ internal fun createSettingsHomePage(activity: MainUiHost): View = with(activity)
         }
     )
 
-    // 子頁面 2: 歌詞來源管理
+    // 子頁面 2: 歌詞源管理
     subpageGrid.addView(
         settingsCategoryCard(
             title = getString(R.string.ui_sources_subpage_title),

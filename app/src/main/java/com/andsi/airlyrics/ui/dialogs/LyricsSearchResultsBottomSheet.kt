@@ -235,6 +235,36 @@ private fun showLyricsCandidatesBottomSheetInternal(
             }
             topMetaRow.addView(sourceBadge)
 
+            val formatType = when {
+                candidate.result.plainLrc.contains("<tt", ignoreCase = true) ||
+                candidate.result.plainLrc.contains("<p begin=", ignoreCase = true) ||
+                candidate.result.translatedLrc?.contains("<tt", ignoreCase = true) == true -> "TTML"
+                candidate.hasSyncedLrc || candidate.hasWordTiming -> "LRC"
+                else -> "TXT"
+            }
+            val formatBadge = TextView(activity).apply {
+                text = formatType
+                textSize = AirUiTokens.TextSize.Caption
+                typeface = Typeface.DEFAULT_BOLD
+                setTextColor(colorOnAccent)
+                setPadding(dp(8), dp(2), dp(8), dp(2))
+                background = GradientDrawable().apply {
+                    cornerRadius = dp(AirUiTokens.Radius.Pill).toFloat()
+                    setColor(when (formatType) {
+                        "TTML" -> colorAccent
+                        "LRC" -> colorAccentMint
+                        else -> colorStroke
+                    })
+                }
+                layoutParams = LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.WRAP_CONTENT,
+                    ViewGroup.LayoutParams.WRAP_CONTENT
+                ).apply {
+                    setMargins(dp(AirUiTokens.Space.Xs), 0, 0, 0)
+                }
+            }
+            topMetaRow.addView(formatBadge)
+
             val timelineLabel = when {
                 candidate.hasWordTiming -> "逐字時間軸"
                 candidate.hasSyncedLrc -> "LRC 時間軸"

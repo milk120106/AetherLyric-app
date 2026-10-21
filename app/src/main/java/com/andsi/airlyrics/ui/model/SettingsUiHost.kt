@@ -45,4 +45,5 @@ internal interface SettingsUiHost {
     fun setCompactMode(enabled: Boolean)
     fun isAudioAiTranscriptionEnabled(): Boolean
     fun setAudioAiTranscriptionEnabled(enabled: Boolean)
+    fun exportLyricsDocument(suggestedFileName: String, content: String)
 }

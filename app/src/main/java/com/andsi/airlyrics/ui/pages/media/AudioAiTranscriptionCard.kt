@@ -15,6 +15,7 @@ import android.widget.LinearLayout
 import android.widget.ProgressBar
 import android.widget.TextView
 import android.widget.Toast
+import androidx.appcompat.widget.SwitchCompat
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.lifecycle.lifecycleScope
 import com.andsi.airlyrics.R
@@ -51,8 +52,48 @@ internal fun createAudioAiTranscriptionCard(activity: MainUiHost): View = with(a
     var selectedTrackArtist: String = ""
 
     return card(activity) {
-        addView(bigText(activity, getString(R.string.ui_ai_audio_transcription_title)))
-        addView(smallHint(activity, getString(R.string.ui_ai_audio_transcription_desc)))
+        val isAiEnabled = isAudioAiTranscriptionEnabled()
+
+        val expandedContent = LinearLayout(activity).apply {
+            orientation = LinearLayout.VERTICAL
+            layoutParams = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            )
+            visibility = if (isAiEnabled) View.VISIBLE else View.GONE
+        }
+
+        val headerRow = LinearLayout(activity).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            layoutParams = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            )
+
+            val infoLayout = LinearLayout(activity).apply {
+                orientation = LinearLayout.VERTICAL
+                layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply {
+                    setMargins(0, 0, dp(AirUiTokens.Space.Sm), 0)
+                }
+                addView(bigText(activity, getString(R.string.ui_ai_audio_transcription_title)))
+                addView(smallHint(activity, getString(R.string.ui_ai_audio_transcription_desc)))
+            }
+            addView(infoLayout)
+
+            val aiSwitch = SwitchCompat(activity).apply {
+                isChecked = isAiEnabled
+                applyAirThemeTint(activity)
+                setOnCheckedChangeListener { _, checked ->
+                    if (checked != isAudioAiTranscriptionEnabled()) {
+                        setAudioAiTranscriptionEnabled(checked)
+                    }
+                    expandedContent.visibility = if (checked) View.VISIBLE else View.GONE
+                }
+            }
+            addView(aiSwitch)
+        }
+        addView(headerRow)
 
         // 分頁切換列：[本地音檔辨識] / [輸入影片網址]
         var currentTab = 0 // 0: 本地音檔, 1: 影片網址
@@ -104,7 +145,7 @@ internal fun createAudioAiTranscriptionCard(activity: MainUiHost): View = with(a
 
         tabContainer.addView(tabLocalButton)
         tabContainer.addView(tabUrlButton)
-        addView(tabContainer)
+        expandedContent.addView(tabContainer)
 
         // ==================== 進度條與狀態提示文字 (共用) ====================
         val progressBar = ProgressBar(activity, null, android.R.attr.progressBarStyleHorizontal).apply {
@@ -543,7 +584,7 @@ internal fun createAudioAiTranscriptionCard(activity: MainUiHost): View = with(a
         (alignReferenceButton.layoutParams as? LinearLayout.LayoutParams)?.setMargins(0, dp(AirUiTokens.Space.Sm), 0, 0)
         localPanel.addView(alignReferenceButton)
 
-        addView(localPanel)
+        expandedContent.addView(localPanel)
 
         // ==================== 面板 2：輸入影片網址 ====================
         val urlPanel = LinearLayout(activity).apply {
@@ -802,11 +843,13 @@ internal fun createAudioAiTranscriptionCard(activity: MainUiHost): View = with(a
         (ytdlnisButton.layoutParams as? LinearLayout.LayoutParams)?.setMargins(0, dp(AirUiTokens.Space.Sm), 0, 0)
         urlPanel.addView(ytdlnisButton)
 
-        addView(urlPanel)
+        expandedContent.addView(urlPanel)
 
         // 插入進度條與提示文字在最底端
-        addView(progressBar)
-        addView(statusText)
+        expandedContent.addView(progressBar)
+        expandedContent.addView(statusText)
+
+        addView(expandedContent)
 
         // 分頁切換函式與狀態檢測
         fun checkYtdlpSupport() {

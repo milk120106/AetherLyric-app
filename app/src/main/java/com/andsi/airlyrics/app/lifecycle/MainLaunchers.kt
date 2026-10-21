@@ -1,6 +1,7 @@
 package com.andsi.airlyrics.app.lifecycle
 
 import android.net.Uri
+import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import com.andsi.airlyrics.lyrics.importer.LyricsFormatCatalog
@@ -12,7 +13,7 @@ import com.andsi.airlyrics.lyrics.importer.LyricsFormatCatalog
  * the existing handwritten UI and import/permission behavior.
  */
 internal class MainLaunchers(
-    activity: AppCompatActivity,
+    private val activity: AppCompatActivity,
     private val onLyricsFileResult: (Uri?) -> Unit,
     private val onFloatingFontFileResult: (Uri?) -> Unit,
     private val onLyricsDirectorySelected: (Uri) -> Unit,
@@ -52,6 +53,25 @@ internal class MainLaunchers(
             onNotificationPermissionResult(granted)
         }
 
+    private var pendingExportContent: String? = null
+
+    private val createDocumentLauncher =
+        activity.registerForActivityResult(ActivityResultContracts.CreateDocument("*/*")) { uri ->
+            val content = pendingExportContent
+            pendingExportContent = null
+            if (uri != null && content != null) {
+                try {
+                    activity.contentResolver.openOutputStream(uri)?.use { os ->
+                        os.write(content.toByteArray(Charsets.UTF_8))
+                        os.flush()
+                    }
+                    Toast.makeText(activity, "歌詞匯出成功", Toast.LENGTH_SHORT).show()
+                } catch (e: Exception) {
+                    Toast.makeText(activity, "歌詞寫入失敗: ${e.message}", Toast.LENGTH_LONG).show()
+                }
+            }
+        }
+
     fun selectLyricsFile() {
         lyricsFileLauncher.launch(lyricsDocumentMimeTypes)
     }
@@ -66,5 +86,10 @@ internal class MainLaunchers(
 
     fun requestNotificationPermission(permission: String) {
         notificationPermissionLauncher.launch(permission)
+    }
+
+    fun exportDocument(suggestedFileName: String, content: String) {
+        pendingExportContent = content
+        createDocumentLauncher.launch(suggestedFileName)
     }
 }

@@ -301,6 +301,7 @@ object AetherLyricApiClient {
             put("preferred_engine", preferredEngine)
             put("preferred_lyrics_source", preferredSource)
             put("enable_ai_correction", enableAiCorrection)
+            put("preferred_format", "ttml")
             if (!referenceLrc.isNullOrBlank()) {
                 put("reference_lrc", referenceLrc)
             }
@@ -367,6 +368,7 @@ object AetherLyricApiClient {
                 writeFormField("preferred_engine", preferredEngine)
                 writeFormField("preferred_lyrics_source", preferredSource)
                 writeFormField("enable_ai_correction", enableAiCorrection.toString())
+                writeFormField("preferred_format", "ttml")
                 if (!referenceLrc.isNullOrEmpty()) writeFormField("reference_lrc", referenceLrc)
 
                 writer.append("--$boundary\r\n")
@@ -733,6 +735,7 @@ object AetherLyricApiClient {
 
             val bodyJson = JSONObject().apply {
                 put("reference_lrc", referenceLrc)
+                put("preferred_format", "ttml")
                 val segmentsArray = JSONArray()
                 asrSegments.forEach { seg ->
                     segmentsArray.put(JSONObject(seg))
@@ -750,7 +753,7 @@ object AetherLyricApiClient {
             if (code == HttpURLConnection.HTTP_OK) {
                 val respText = conn.inputStream.bufferedReader(StandardCharsets.UTF_8).use { it.readText() }
                 val json = JSONObject(respText)
-                val output = json.optString("lrc_output")
+                val output = json.optString("ttml_output").ifBlank { json.optString("lrc_output") }
                 if (output.isNotBlank()) {
                     AppLogger.i("AetherLyricApiClient", "歌詞時間軸對齊成功 (offset: ${json.optDouble("offset")}s, confidence: ${json.optDouble("confidence")})")
                     output
@@ -782,6 +785,7 @@ object AetherLyricApiClient {
             val targetUrl = "$base/api/v1/tasks/url"
             val json = JSONObject().apply {
                 put("url", videoUrl.trim())
+                put("preferred_format", "ttml")
                 if (!title.isNullOrBlank()) put("track_title", title.trim())
                 if (!artist.isNullOrBlank()) put("artist", artist.trim())
             }

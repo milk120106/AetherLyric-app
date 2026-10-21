@@ -466,7 +466,7 @@
 
     <string name="ui_server_subpage_title">伺服器</string>
     <string name="ui_server_subpage_desc">管理伺服器位址、金鑰、連線狀態與引擎模式</string>
-    <string name="ui_sources_subpage_title">歌詞來源管理</string>
+    <string name="ui_sources_subpage_title">歌詞源管理</string>
     <string name="ui_sources_subpage_desc">本地與伺服器來源、拖曳排序、勾選與自訂 Key (BYOK)</string>
     <string name="ui_local_lyrics_subpage_title">本地歌詞管理</string>
     <string name="ui_local_lyrics_subpage_desc">本地歌詞清單、儲存路徑、匯入匯出與清除快取</string>

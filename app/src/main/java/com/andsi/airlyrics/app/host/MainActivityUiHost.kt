@@ -540,6 +540,10 @@ internal class MainActivityUiHost(
         graph.viewModel.notifySettingsChanged()
     }
 
+    override fun exportLyricsDocument(suggestedFileName: String, content: String) {
+        graph.launchers.exportDocument(suggestedFileName, content)
+    }
+
     fun toggleThemeMode() {
         val nextDark = !isDarkTheme()
         applyPaletteChange {

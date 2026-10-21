@@ -72,15 +72,46 @@ internal fun MainActivityUiHost.localLyricsRowImpl(
             setStroke(dp(AirUiTokens.Stroke.Hairline), colorStroke)
         }
         enableSoftPressFeedback(AirUiTokens.Motion.DefaultPressScale + 0.01f)
-        if (!badgeText.isNullOrBlank()) {
-            addView(TextView(activity).apply {
-                text = badgeText
+        val formatBadgeLabel = when {
+            item.name.endsWith(".ttml", ignoreCase = true) -> "TTML"
+            item.hasWordByWordLyrics -> "TTML"
+            item.name.endsWith(".txt", ignoreCase = true) -> "TXT"
+            item.name.endsWith(".lrc", ignoreCase = true) || item.hasPlainLyrics -> "LRC"
+            else -> "TXT"
+        }
+        val topBadgeRow = LinearLayout(activity).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(0, 0, 0, dp(AirUiTokens.Space.Sm))
+
+            if (!badgeText.isNullOrBlank()) {
+                addView(TextView(activity).apply {
+                    text = badgeText
+                    textSize = AirUiTokens.TextSize.Tiny
+                    typeface = Typeface.DEFAULT_BOLD
+                    setTextColor(colorAccent)
+                    setPadding(0, 0, dp(AirUiTokens.Space.Sm), 0)
+                })
+            }
+
+            val formatBadge = TextView(activity).apply {
+                text = formatBadgeLabel
                 textSize = AirUiTokens.TextSize.Tiny
                 typeface = Typeface.DEFAULT_BOLD
-                setTextColor(colorAccent)
-                setPadding(0, 0, 0, dp(AirUiTokens.Space.Sm))
-            })
+                setTextColor(colorOnAccent)
+                setPadding(dp(6), dp(1), dp(6), dp(1))
+                background = GradientDrawable().apply {
+                    cornerRadius = dp(AirUiTokens.Radius.Pill).toFloat()
+                    setColor(when (formatBadgeLabel) {
+                        "TTML" -> colorAccent
+                        "LRC" -> colorAccentMint
+                        else -> colorStroke
+                    })
+                }
+            }
+            addView(formatBadge)
         }
+        addView(topBadgeRow)
         addView(expandableText(TextView(activity).apply {
             text = item.displayTitle
             textSize = AirUiTokens.TextSize.Body
@@ -282,7 +313,7 @@ private fun MainActivityUiHost.showLocalLyricsEditorDialog(session: EditorSessio
                 val check = localLyricsDialogButton(getString(R.string.ui_check_format), LocalLyricsDialogActionStyle.ACCENT_TEXT) {
                     capture(); editorSession.check()
                 }
-                val exportBtn = localLyricsDialogButton("匯出此首歌詞（標準 LRC / 雙語 LRC / 純文字 TXT）", LocalLyricsDialogActionStyle.ACCENT_TEXT) {
+                val exportBtn = localLyricsDialogButton("匯出歌詞", LocalLyricsDialogActionStyle.ACCENT_TEXT) {
                     capture()
                     val currentRaw = editor.text?.toString().orEmpty()
                     val formats = LyricsExportFormat.entries
@@ -292,18 +323,13 @@ private fun MainActivityUiHost.showLocalLyricsEditorDialog(session: EditorSessio
                         .setItems(formatLabels) { _, which ->
                             val chosen = formats[which]
                             try {
-                                val file = LyricsExportFormatter.exportSingleSong(
-                                    context = this@showLocalLyricsEditorDialog,
-                                    title = item.title,
-                                    artist = item.artist,
-                                    rawContent = currentRaw,
-                                    format = chosen
-                                )
-                                Toast.makeText(
-                                    this@showLocalLyricsEditorDialog,
-                                    "已匯出至：${file.name}",
-                                    Toast.LENGTH_LONG
-                                ).show()
+                                val formatted = LyricsExportFormatter.formatLyrics(currentRaw, chosen)
+                                val songTitle = item.title.ifBlank { "歌詞" }
+                                val songArtist = item.artist.ifBlank { "未知歌手" }
+                                val safeTitle = songTitle.replace(Regex("""[\\/:*?"<>|]"""), "_")
+                                val safeArtist = songArtist.replace(Regex("""[\\/:*?"<>|]"""), "_")
+                                val suggestedName = "$safeTitle - $safeArtist.${chosen.extension}"
+                                exportLyricsDocument(suggestedName, formatted)
                             } catch (e: Exception) {
                                 Toast.makeText(
                                     this@showLocalLyricsEditorDialog,
