@@ -1,19 +1,14 @@
-# AirLyrics Documentation
+# AetherLyric-app 文件中心 (Documentation Index)
 
-[English](README.md) · [简体中文](README.zh-CN.md)
+[繁體中文](README.md) · [简体中文](README.zh-CN.md) · [English](README.en.md)
 
-This directory contains project documentation for AirLyrics.
+---
 
-| Document                          | Description                                                    |
-|-----------------------------------|----------------------------------------------------------------|
-| [User Guide](USER_GUIDE.md)       | Project usage guide                                            |
-| [Privacy Policy](../PRIVACY.md)   | Permissions, local data and online lyrics search privacy notes |
-| [Lyrics Format](LYRICS_FORMAT.md) | Local LRC and TTML import formats                              |
-| [Contributing](CONTRIBUTING.md)   | Development environment, PR workflow and contribution rules    |
-| [Architecture](ARCHITECTURE.md)   | Module layout and runtime flow                                 |
+## 文件導覽
 
-## License
-
-AirLyrics is licensed under the MIT License.
-
-See [LICENSE](../LICENSE) for details.
+- [系統架構與開發說明 (ARCHITECTURE)](ARCHITECTURE.md)
+- [外部 Intent API 與自訂 JSON 外掛規範 (INTENT_API_PLUGIN_SPEC)](INTENT_API_PLUGIN_SPEC.md)
+- [使用者操作指南 (USER_GUIDE)](USER_GUIDE.md)
+- [歌詞格式與時間軸規範 (LYRICS_FORMAT)](LYRICS_FORMAT.md)
+- [多源歌詞匹配與優先級演算法 (lyrics-matching)](lyrics-matching.md)
+- [參與貢獻指南 (CONTRIBUTING)](CONTRIBUTING.md)

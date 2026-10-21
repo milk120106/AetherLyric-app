@@ -1,94 +1,25 @@
-# 项目架构
+# AetherLyric-app 系统架构与开发说明
 
-[English](ARCHITECTURE.md) · [简体中文](ARCHITECTURE.zh-CN.md)
+[繁體中文](ARCHITECTURE.md) · [简体中文](ARCHITECTURE.zh-CN.md) · [English](ARCHITECTURE.en.md)
 
-AirLyrics 使用 Kotlin 实现 Android 应用，Rust 核心负责联网歌词查询，通过 JNI 与应用交互。
+---
 
-## 项目结构
+## 1. 核心架构概览
 
-| 目录 | 职责 |
-| --- | --- |
-| `app/` | 唯一的 Gradle 模块 `:app`，包含 Android 应用和测试 |
-| `lyrics-core/` | Rust 歌词查询、匹配与解析 |
-| `scripts/` | 构建检查和开发工具 |
-| `docs/` | 使用、贡献和架构文档 |
+AetherLyric-app 采用模块化分层设计，结合本地多源歌词检索与自建服务器 AI 语音转录能力：
 
-Gradle 通过 `cargo ndk` 构建 `libairlyrics_lyrics.so`，输出到 `app/src/main/jniLibs/`。已有原生库时，可用 `-Pairlyrics.skipRustBuild=true` 跳过 Rust 构建。
+1. **界面与主题系统 (`ui/`)**
+   - 支持亮色与暗色模式即时重建（`MainActivityUiHost.toggleThemeMode()` 联动 `applyPaletteChange`），并自动验证自定义背景色与主题亮度兼容性。
+   - **设置首页 (`SettingsHomePage`)**：集中管理搜索策略、自动弹出候选列表开关、本地 Google 翻译开关与歌词显示格式（仅原文 / 仅翻译 / 双语对照）快速切换。
+   - **系统设置页 (`SystemSettingsPage`)**：集中管理“权限模式”（基础通知监听、进阶无障碍辅助、状态栏撷取 / Shizuku）、“简洁模式”与“全局时间轴偏移量”。
+   - **媒体首页 (`MediaPage`)**：整合“歌词显示格式”快速切换、“手动搜索歌词（多源候选列表）”入口，以及“媒体页 AI 歌词识别”折叠开关与功能卡。
 
-## Android 主要职责
+2. **多源并行搜索与翻译引擎 (`lyrics/`)**
+   - `LyricsRepository.searchAllSourcesParallel`：使用协程并行查询所有已启用的本地来源、自定义 JSON 插件与自建服务器。
+   - **严格排序算法**：依次比较 `(1) 用户设置的来源优先顺序 -> (2) 是否包含同步 LRC 时间轴 -> (3) 与目标曲目时长的差距绝对值`。
+   - `GoogleTranslateService`：当外语歌词无现成翻译且已开启“启用本地 Google 翻译”时，在 `Dispatchers.IO` 逐行批量翻译为中文并完整保留 `[mm:ss.xx]` 时间戳。
+   - `LyricsExportFormatter`：支持导出为“标准 LRC（仅原文）”、“双语 LRC”与“纯文本 TXT（剥除时间戳）”三种格式。
 
-| 包 | 职责 |
-| --- | --- |
-| `app` | 依赖组装、生命周期、ViewModel 和用户操作协调 |
-| `ui` | 页面、组件及面向界面的接口 |
-| `media` | 媒体会话监听、播放器选择和播放状态 |
-| `lyrics` | 歌词查询、导入、解析和存储 |
-| `floating` | 前台服务、悬浮窗控制和歌词渲染 |
-| `settings` / `displayscope` | 设置持久化 / 按应用控制显示范围 |
-| `core` / `design` / `feedback` / `i18n` | 共享模型、设计参数、反馈契约和本地化 |
-
-## 运行流程
-
-```text
-音乐应用 → media → 主界面 / FloatingLyricsService
-                        → LyricsRepository → 本地存储 / JNI → Rust 歌词源
-                        → FloatingLyricsRenderer → 悬浮窗
-```
-
-主界面处理用户操作，悬浮服务跟随所选播放器更新歌词。旧媒体快照和过期查询结果会被丢弃；手动搜索期间，自动查询不能覆盖其结果。
-
-导入、编辑或删除歌词后，通过 `LyricsChangedBroadcast` 通知界面和悬浮服务刷新。跨组件操作使用专用广播或命令对象，避免重复定义 action 和 extra。
-
-## 包边界
-
-依赖规则由 `scripts/architecture/policy.json` 维护，以下为自动生成的允许依赖表：
-
-<!-- architecture-policy:start -->
-```text
-core         -> (none)
-design       -> core.model
-displayscope -> (none)
-feedback     -> (none)
-settings     -> core.model, core.prefs, core.color
-lyrics       -> core
-i18n         -> core.model, core.prefs
-i18n.lyrics  -> lyrics.LyricsLookupErrorType, lyrics.LyricsLookupException, lyrics.storage.LyricsStorage
-media        -> core.model, core.prefs, i18n.LocalizedServiceContext
-ui           -> core.model, core.color, design, feedback.AirFeedback, i18n
-floating     -> core, design, displayscope, feedback, i18n, i18n.lyrics, lyrics, media, settings
-app          -> core, design, displayscope, feedback, i18n, i18n.lyrics, lyrics, media, settings, floating, ui
-```
-<!-- architecture-policy:end -->
-
-- `app` 负责组装功能包；`ui` 通过接口获取数据和操作，不直接访问业务实现或设置存储。
-- `lyrics` 与 `media` 互不依赖；`floating` 可以协调二者，但不依赖主界面。
-- 授权按最精确的分组匹配，允许 `i18n` 不等于允许 `i18n.lyrics`。接口也不能暴露被禁止的实现类型。
-
-使用 JDK 17 和 Python 3.10+ 检查源码、JVM 依赖及规则一致性：
-
-```bash
-./scripts/check_architecture_boundaries.sh
-```
-
-`--source-only` 仅用于快速预检查。新增包或调整依赖时，修改规则并填写理由，再用 `--update-docs` 同步中英文表格。检查不覆盖反射字符串、原生代码和外部库内部实现，仍需代码审查。
-
-## 状态与存储
-
-- `MainActivity` 创建 `MainGraph` 组装依赖；`MainViewModel` 管理界面状态，`SavedStateHandle` 保存需要恢复的操作，UI effect 交由 `MainGraph` 执行。
-- `LyricsStorage` 统一管理应用目录或 SAF 自定义目录中的歌词和索引。写入串行执行；逐字歌词与生成的普通 LRC 协调更新，失败时尝试回滚。
-- 悬浮窗的“期望显示”与实际可见性分开保存，暂停、锁屏或显示范围限制不会清除用户的开启意图。
-- 设置通过 `settings/store/` 读写；界面文案使用 Android 字符串资源，较长的帮助和更新记录放在 `assets/`。
-
-## 歌词来源限制与匹配
-
-### Spicy Lyrics
-
-Spicy 支持普通和逐字歌词，需手动启用。歌词和编辑内容仅保留在应用内，获取 30 天后到期，不提供文件导出、分享或备份。显示时保留来源和贡献者署名；请求受限流约束。具体要求见 [Spicy API 使用条款](https://developers.spicylyrics.org/terms)。
-
-构建时，在未跟踪的 `local.properties` 或用户 Gradle 配置中设置 `airlyrics.spicy.clientKey`，或使用环境变量 `AIRLYRICS_SPICY_CLIENT_KEY`。使用已启用客户端访问的 `sl_pk_` key，不要使用 `sl_sk_` secret key 或将实际 key 提交到仓库。未配置时，Spicy 显示为不可用。
-
-### 歌词匹配
-
-手动导入优先于缓存和联网搜索。在线来源按所选优先级查询，共用歌名、歌手、时长和专辑评分；找不到时逐步放宽条件，因此命中不保证是同一录音版本。Spicy 通过 Spotify 搜索候选歌曲，再获取歌词；没有逐字歌词时可保留普通同步歌词。
-
-“国际标题搜索”会先尝试解析国际标题，再沿用相同的匹配流程，不改变本地保存时的歌曲身份。实现见 `lyrics-core/src/matching.rs`，详细说明见[歌词匹配](lyrics-matching.md)。
+3. **服务器通信与硬件加密存储 (`network/aether/` & `settings/store/`)**
+   - `AetherLyricServerStore`：支持“双引擎模式 (`DUAL_ENGINE`)”与“仅服务器模式 (`SERVER_ONLY`)”，并通过 Android Keystore (`AES/GCM/NoPadding`) 加密存储 `APP_ACCESS_TOKEN`、PIN 码、问答验证答案与 Proxy 密码。
+   - `AetherLyricApiClient`：支持 HTTP(S) Proxy 代理、多层验证标头 (`Authorization`, `X-App-Access-Token`, `X-Auth-Pin`, `X-Auth-Answer`)，以及 RFC 6455 WebSocket (`/ws/tasks/{taskId}`) 实时进度监听与 HTTP 轮询自动降级。

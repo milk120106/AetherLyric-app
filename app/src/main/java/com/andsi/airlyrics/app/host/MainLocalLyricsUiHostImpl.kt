@@ -1,6 +1,8 @@
 package com.andsi.airlyrics.app.host
 
+import android.app.AlertDialog
 import android.app.Dialog
+import android.widget.Toast
 import com.andsi.airlyrics.core.model.displayText
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
@@ -26,6 +28,8 @@ import com.andsi.airlyrics.R
 import com.andsi.airlyrics.design.tokens.AirUiTokens
 import com.andsi.airlyrics.lyrics.importer.wordByWordLyricsFormatErrorMessage
 import com.andsi.airlyrics.lyrics.importer.plainLyricsFormatErrorMessage
+import com.andsi.airlyrics.lyrics.storage.LyricsExportFormat
+import com.andsi.airlyrics.lyrics.storage.LyricsExportFormatter
 import com.andsi.airlyrics.lyrics.storage.LyricsStorage
 import com.andsi.airlyrics.ui.components.airIconView
 import com.andsi.airlyrics.ui.components.enableSoftPressFeedback
@@ -278,8 +282,43 @@ private fun MainActivityUiHost.showLocalLyricsEditorDialog(session: EditorSessio
                 val check = localLyricsDialogButton(getString(R.string.ui_check_format), LocalLyricsDialogActionStyle.ACCENT_TEXT) {
                     capture(); editorSession.check()
                 }
+                val exportBtn = localLyricsDialogButton("匯出此首歌詞（標準 LRC / 雙語 LRC / 純文字 TXT）", LocalLyricsDialogActionStyle.ACCENT_TEXT) {
+                    capture()
+                    val currentRaw = editor.text?.toString().orEmpty()
+                    val formats = LyricsExportFormat.entries
+                    val formatLabels = formats.map { it.displayTitle }.toTypedArray()
+                    AlertDialog.Builder(this@showLocalLyricsEditorDialog)
+                        .setTitle("選擇匯出格式")
+                        .setItems(formatLabels) { _, which ->
+                            val chosen = formats[which]
+                            try {
+                                val file = LyricsExportFormatter.exportSingleSong(
+                                    context = this@showLocalLyricsEditorDialog,
+                                    title = item.title,
+                                    artist = item.artist,
+                                    rawContent = currentRaw,
+                                    format = chosen
+                                )
+                                Toast.makeText(
+                                    this@showLocalLyricsEditorDialog,
+                                    "已匯出至：${file.name}",
+                                    Toast.LENGTH_LONG
+                                ).show()
+                            } catch (e: Exception) {
+                                Toast.makeText(
+                                    this@showLocalLyricsEditorDialog,
+                                    "匯出失敗：${e.message}",
+                                    Toast.LENGTH_LONG
+                                ).show()
+                            }
+                        }
+                        .setNegativeButton(getString(R.string.ui_cancel), null)
+                        .show()
+                }
                 buttons += check
+                buttons += exportBtn
                 addView(check)
+                addView(exportBtn)
                 addView(AdaptiveGridLayout(this@showLocalLyricsEditorDialog, 2,
                     dp(AirUiTokens.Space.Lg), dp(AirUiTokens.Space.Lg), fillCells = false).apply {
                     val cancel = localLyricsDialogButton(getString(R.string.ui_cancel), LocalLyricsDialogActionStyle.TEXT) {

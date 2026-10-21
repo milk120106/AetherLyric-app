@@ -15,6 +15,8 @@ import android.widget.Toast
 import androidx.appcompat.widget.SwitchCompat
 import com.andsi.airlyrics.R
 import com.andsi.airlyrics.design.tokens.AirUiTokens
+import com.andsi.airlyrics.settings.store.AppSettingsStore
+import com.andsi.airlyrics.settings.store.LyricsOffsetStore
 import com.andsi.airlyrics.settings.store.ThemeSettingsStore
 import com.andsi.airlyrics.ui.components.*
 import com.andsi.airlyrics.ui.model.MainUiHost
@@ -31,10 +33,16 @@ internal fun createSystemSettingsPage(activity: MainUiHost): View = with(activit
     // 語言選擇
     container.addView(languageChoiceCard(activity))
 
+    // 簡潔模式開關（自設定首頁移入）
+    container.addView(compactModeCard(activity))
+
     // 狀態提示隱藏開關
     container.addView(statusPopupsMuteCard(activity))
 
-    // 三層權限架構卡片 (基礎模式 -> 無障礙模式 -> Shizuku)
+    // 全域時間軸偏移量設定（自設定首頁移入）
+    container.addView(globalOffsetCard(activity))
+
+    // 權限模式卡片
     container.addView(permissionTiersCard(activity))
 
     // 原生系統權限卡片
@@ -47,6 +55,132 @@ internal fun createSystemSettingsPage(activity: MainUiHost): View = with(activit
     container.addView(executionLogsCard(activity))
 
     return scroll(activity, container)
+}
+
+private fun compactModeCard(activity: MainUiHost): View = with(activity) {
+    val isCompact = AppSettingsStore.isCompactMode(activity)
+    return card(activity) {
+        orientation = LinearLayout.HORIZONTAL
+        gravity = Gravity.CENTER_VERTICAL
+        isClickable = true
+        isFocusable = true
+        enableSoftPressFeedback(AirUiTokens.Motion.DefaultPressScale)
+
+        val infoLayout = LinearLayout(activity).apply {
+            orientation = LinearLayout.VERTICAL
+            layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply {
+                setMargins(0, 0, dp(AirUiTokens.Space.Xl), 0)
+            }
+            addView(bigText(activity, getString(R.string.ui_compact_mode)))
+            addView(smallHint(activity, getString(R.string.ui_compact_mode_desc)))
+        }
+        addView(infoLayout)
+
+        val compactSwitch = SwitchCompat(activity).apply {
+            isChecked = isCompact
+            applyAirThemeTint(activity)
+            setOnCheckedChangeListener { _, checked ->
+                if (checked != activity.isCompactMode()) {
+                    activity.setCompactMode(checked)
+                }
+            }
+        }
+        addView(compactSwitch)
+
+        setOnClickListener {
+            compactSwitch.toggle()
+        }
+    }
+}
+
+private fun globalOffsetCard(activity: MainUiHost): View = with(activity) {
+    return card(activity) {
+        var currentGlobalOffset = LyricsOffsetStore.getGlobalOffsetMs(activity)
+        var isGlobalEnabled = LyricsOffsetStore.isGlobalOffsetEnabled(activity)
+
+        val headerRow = LinearLayout(activity).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            layoutParams = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            )
+        }
+
+        val titleView = LinearLayout(activity).apply {
+            orientation = LinearLayout.VERTICAL
+            layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+            addView(bigText(activity, getString(R.string.ui_apply_offset_to_all_songs)))
+            addView(smallHint(activity, if (isGlobalEnabled) "目前套用全域時間軸" else "目前使用單曲專屬時間軸"))
+        }
+
+        val globalSwitch = SwitchCompat(activity).apply {
+            isChecked = isGlobalEnabled
+            applyAirThemeTint(activity)
+            setOnCheckedChangeListener { _, checked ->
+                isGlobalEnabled = checked
+                LyricsOffsetStore.setGlobalOffsetEnabled(activity, checked)
+                (titleView.getChildAt(1) as? TextView)?.text =
+                    if (checked) "目前套用全域時間軸" else "目前使用單曲專屬時間軸"
+                uiActions.reloadFloatingLyrics()
+            }
+        }
+        headerRow.addView(titleView)
+        headerRow.addView(globalSwitch)
+        addView(headerRow)
+
+        val offsetValueView = TextView(activity).apply {
+            text = "${if (currentGlobalOffset > 0) "+" else ""}${currentGlobalOffset} ms"
+            textSize = AirUiTokens.TextSize.PageTitle
+            typeface = Typeface.DEFAULT_BOLD
+            setTextColor(colorAccent)
+            gravity = Gravity.CENTER
+            setPadding(0, dp(AirUiTokens.Space.Sm), 0, dp(AirUiTokens.Space.Sm))
+        }
+        addView(offsetValueView)
+
+        val buttonsRow = LinearLayout(activity).apply {
+            orientation = LinearLayout.HORIZONTAL
+            layoutParams = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            )
+        }
+
+        fun updateOffset(delta: Long) {
+            currentGlobalOffset = if (delta == 0L) 0L else (currentGlobalOffset + delta)
+            LyricsOffsetStore.saveGlobalOffset(activity, currentGlobalOffset)
+            globalSwitch.isChecked = true
+            offsetValueView.text = "${if (currentGlobalOffset > 0) "+" else ""}${currentGlobalOffset} ms"
+            uiActions.reloadFloatingLyrics()
+        }
+
+        val steps = listOf(-500L to "-500", -100L to "-100", 0L to "0", 100L to "+100", 500L to "+500")
+        steps.forEach { (delta, label) ->
+            val btn = TextView(activity).apply {
+                text = label
+                textSize = AirUiTokens.TextSize.BodySmall
+                typeface = Typeface.DEFAULT_BOLD
+                setTextColor(colorTextStrong)
+                gravity = Gravity.CENTER
+                setPadding(dp(4), dp(AirUiTokens.Space.Sm), dp(4), dp(AirUiTokens.Space.Sm))
+                background = GradientDrawable().apply {
+                    cornerRadius = dp(AirUiTokens.Radius.Sm).toFloat()
+                    setColor(colorSurfaceLight)
+                    setStroke(dp(AirUiTokens.Stroke.Hairline), colorStroke)
+                }
+                val params = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply {
+                    setMargins(dp(2), 0, dp(2), 0)
+                }
+                layoutParams = params
+                isClickable = true
+                isFocusable = true
+                setOnClickListener { updateOffset(delta) }
+            }
+            buttonsRow.addView(btn)
+        }
+        addView(buttonsRow)
+    }
 }
 
 private fun executionLogsCard(activity: MainUiHost): View = with(activity) {
@@ -255,8 +389,8 @@ private fun statusPopupsMuteCard(activity: MainUiHost): View = with(activity) st
 
 private fun permissionTiersCard(activity: MainUiHost): View = with(activity) {
     return card(activity) {
-        addView(bigText(activity, "三層權限架構"))
-        addView(smallHint(activity, "提供三種層級的媒體狀態偵測能力，可依需求選擇開啟"))
+        addView(bigText(activity, getString(R.string.ui_permission_tier_title)))
+        addView(smallHint(activity, "依播放器相容性提供三種偵測方式：標準通知監聽、進階無障礙輔助、以及狀態列文字擷取"))
 
         // 1. 基礎模式 (最上)
         val isBasicOk = hasNotificationListenerAccess() && overlayPermissionGranted

@@ -421,10 +421,10 @@
     <string name="ui_search_international_title">国际标题搜索</string>
     <string name="ui_searching_international_title">正在尝试国际标题搜索…</string>
 
-    <!-- AetherLyric 服务器双引擎模式设置 -->
-    <string name="ui_aetherlyric_server_title">AetherLyric 服务器 (双引擎模式)</string>
+    <!-- 服务器双引擎模式设置 -->
+    <string name="ui_aetherlyric_server_title">服务器</string>
     <string name="ui_aetherlyric_server_desc">连接自建服务器，支持云端 AI 转录、锚点校正与跨平台歌词获取</string>
-    <string name="ui_server_url_label">AetherLyric 服务器地址</string>
+    <string name="ui_server_url_label">服务器地址</string>
     <string name="ui_server_url_hint">http://192.168.x.x:8000</string>
     <string name="ui_server_api_key_label">服务器访问密钥 (ADMIN_API_KEY)</string>
     <string name="ui_server_api_key_hint">若服务器已设置密钥请填写 (可留空)</string>
@@ -432,7 +432,7 @@
     <string name="ui_testing_connection">连接测试中…</string>
     <string name="ui_test_connection_success">连接正常：服务器在线 (队列：%1$d，引擎：%2$s)</string>
     <string name="ui_test_connection_failed">连接失败：%1$s</string>
-    <string name="ui_enable_server_engine">启用 AetherLyric 服务器</string>
+    <string name="ui_enable_server_engine">启用服务器</string>
     <string name="ui_server_must_verify_first">请先输入有效地址并点击「测试连接」成功后再开启</string>
     <string name="ui_server_engine_status_on">双引擎模式已启用：优先使用自建服务器 AI 引擎</string>
     <string name="ui_server_engine_status_off">双引擎模式已停用：使用本地多源聚合引擎</string>
@@ -464,14 +464,14 @@
     <string name="ui_offset_saved_for_song">已成功保存单曲专属偏移量</string>
     <string name="ui_offset_saved_as_global">已成功保存全局偏移量并应用</string>
 
-    <string name="ui_server_subpage_title">AetherLyric 服务器</string>
-    <string name="ui_server_subpage_desc">管理服务器地址、密钥、连接状态与双引擎模式</string>
+    <string name="ui_server_subpage_title">服务器</string>
+    <string name="ui_server_subpage_desc">管理服务器地址、密钥、连接状态与引擎模式</string>
     <string name="ui_sources_subpage_title">歌词来源管理</string>
     <string name="ui_sources_subpage_desc">本地与服务器来源、拖拽排序、勾选与自定义 Key (BYOK)</string>
     <string name="ui_local_lyrics_subpage_title">本地歌词管理</string>
     <string name="ui_local_lyrics_subpage_desc">本地歌词列表、存储路径、导入导出与清理缓存</string>
     <string name="ui_external_control_subpage_title">扩展与外部控制</string>
-    <string name="ui_external_control_subpage_desc">App 名单、Intent API 开关与三层权限架构</string>
+    <string name="ui_external_control_subpage_desc">App 名单、Intent API 开关与权限模式</string>
     <string name="ui_execution_logs_title">运行日志</string>
     <string name="ui_execution_logs_desc">查看本次启动的关键事件、查询记录与 API 状态</string>
 
@@ -502,7 +502,7 @@
     <string name="ui_behavior_ask">询问</string>
     <string name="ui_behavior_allow">允许</string>
 
-    <string name="ui_permission_tier_title">三层权限架构</string>
+    <string name="ui_permission_tier_title">权限模式</string>
     <string name="ui_tier_shizuku_status">Shizuku (无线调试)</string>
     <string name="ui_tier_accessibility_status">无障碍模式</string>
     <string name="ui_tier_basic_status">基础模式 (通知与悬浮窗)</string>

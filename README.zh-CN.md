@@ -3,13 +3,13 @@
 <img src="docs/assets/airlyrics-logo.png" width="120" alt="AetherLyric Logo" />
 
 # AetherLyric-app
-**全功能 Android 悬浮同步歌词客户端 · 双引擎 AI 语音转录架构**
+**全功能 Android 悬浮同步歌词客户端 · 双引擎与仅服务器 AI 语音转录架构**
 
 [![Platform](https://img.shields.io/badge/Platform-Android_8.0+-brightgreen?style=flat-square)](https://github.com/milk120106/AetherLyric-app)
 [![Version](https://img.shields.io/badge/Version-0.1.0-blueviolet?style=flat-square)](https://github.com/milk120106/AetherLyric-app/releases)
 [![License](https://img.shields.io/badge/License-MIT-orange?style=flat-square)](LICENSE)
 
-[繁體中文](README.md) · [简体中文](README.zh-CN.md) · [English](README.en.md)
+[繁體中文](README.md) · [简体中文](README.zh-CN.md) · [English](README.en.md) · [系统架构与开发说明](docs/ARCHITECTURE.zh-CN.md) · [外部 Intent API 与 JSON 插件规范](docs/INTENT_API_PLUGIN_SPEC.zh-CN.md)
 
 </div>
 
@@ -19,78 +19,50 @@
 
 **AetherLyric-app** 是一款开源、轻量且功能强大的 Android 悬浮同步歌词应用程序（基于 [AirLyrics](https://github.com/AirLyrics/AirLyrics) 进行扩展与重构）。
 
-本项目最大特色在于**双引擎模式 (Dual-Engine Mode)**：
-1. **自建 AI 服务器引擎 ([AetherLyric-server](https://github.com/milk120106/AetherLyric-server))**：可连接自建服务器，使用 Faster-Whisper / Groq / OpenAI 兼容模型进行 AI 语音转录、逐字对齐 (POST `/api/v1/align`)、音视频网址解析与智能歌词格式校正。
-2. **本地多源聚合引擎**：未连接服务器或自建服务器离线时，自动无缝降级使用本地多来源聚合搜索（网易云、QQ 音乐、酷狗音乐、LRCLIB、Musixmatch、Genius、AZLyrics 等）。
+本项目支持灵活的**服务器协同模式**：
+1. **双引擎模式 (Dual-Engine Mode)**：优先通过自建 [AetherLyric-server](https://github.com/milk120106/AetherLyric-server) 进行搜索、Faster-Whisper / Groq / OpenAI 兼容模型 AI 语音转录、逐字对齐 (`POST /api/v1/align`) 与音视频网址解析；当服务器离线或未命中时，自动无缝切换至本地多来源聚合引擎。
+2. **仅服务器模式 (Server-Only Mode)**：所有歌词搜索、时间轴对齐与 AI 转录完全交由自建服务器统一处理，不在本机直接请求第三方歌词来源。
 
 ---
 
 ## 核心功能特色 (Key Features)
 
-### 1. 双引擎架构与多服务器配置 (Dual-Engine Architecture)
-- **多服务器配置管理**：支持保存多组自建服务器配置（自定义名称、服务器 URL），并通过下拉菜单即时切换。
-- **公开状态与健康检测**：切换时自动调用 `GET /api/v1/health` 测试连接，即时呈现服务器在线状态、AI 模型名称、处理队列长度及 yt-dlp 模块可用性。App 端完全公开透明，无需存储或绑定管理员私钥。
-- **无缝自动降级**：优先调用自建服务器 API；连接超时或缓存未命中时，自动平滑切换为本地多源查询。
-- **云端锚点对齐**：纯文本来源（如 Genius、AZLyrics）可自动请求服务器 `/api/v1/align` 进行高精度逐行时间轴对齐；服务器离线时自动降级本地简易时间轴。
+### 1. 服务器协同架构、WebSocket 进度推送与多层安全防护
+- **多服务器配置管理**：支持保存多组自建服务器配置（自定义名称、服务器 URL、Proxy 与验证凭证），并提供快速菜单即时切换。
+- **双引擎与仅服务器模式切换**：可依网络与隐私需求自由切换「双引擎模式（本地 + 服务器协同）」与「仅服务器模式（全交由服务器搜索与识别）」。
+- **WebSocket 实时任务进度推送**：开启「使用 WebSocket 传输进度」后，优先通过 `/ws/tasks/{taskId}` 实时接收转录、下载与对齐进度；若网络环境不支持 WebSocket，自动无缝降级为 HTTP 轮询。
+- **多层安全验证与 Android Keystore 加密**：支持 `APP_ACCESS_TOKEN`、PIN 码 (`X-Aether-Pin`) 与问答验证答案 (`X-Aether-Challenge-Answer`)，所有敏感凭证均通过 Android Keystore (`AES/GCM/NoPadding`) 加密存储。
+- **HTTP(S) Proxy 代理支持**：支持为服务器连接配置独立的 HTTP/HTTPS Proxy 主机、端口与账号密码验证。
 
-### 2. 本地歌词来源扩展与 BYOK (自带密钥)
-- 支持自由拖曳排序、勾选与启用多家歌词来源：
-  - **网易云音乐 (NetEase Cloud Music)**
-  - **QQ 音乐 (QQ Music)**
-  - **酷狗音乐 (Kugou)**
-  - **LRCLIB**
-  - **Musixmatch** (支持自定义 User Token)
-  - **Genius** (支持自定义 Client Access Token)
-  - **AZLyrics**
-  - **Spicy Lyrics (逐字动态歌词)**
-- **常用来源卡片与弹窗管理**：卡片上紧凑呈现前 4 大常用来源，点击「更多来源…」弹出完整弹窗轻松调整排序与启闭状态。
-- **自定义 API 密钥 (BYOK)**：允许填写用户自备密钥，解锁更高查询配额与请求稳定性。
+### 2. 多源并行搜索、候选结果 BottomSheet 与自定义 JSON 插件
+- **多源并行搜索引擎**：并行查询已启用的多家歌词来源（网易云音乐、QQ 音乐、酷狗音乐、LRCLIB、Musixmatch、Genius、AZLyrics、自定义 JSON 插件与自建服务器），并依据「用户设置优先顺序 -> 是否具备 LRC 时间轴 -> 歌曲时长相近度」智能排序。
+- **搜索结果候选列表 (BottomSheet)**：手动搜索或开启「自动搜索时弹出结果列表」时，以列表完整呈现来源名称、时间轴标签、歌曲时长、匹配标题与前 4 行歌词预览，点选即可一键应用。
+- **自定义 JSON 来源插件系统**：支持通过网址 (URL) 或直接粘贴 JSON 规则导入第三方歌词来源，具备严格沙盒安全限制（仅允许 HTTP/HTTPS、8 秒连接超时、2MB 响应上限，禁止动态脚本执行）以及 6 / 12 / 24 / 72 小时定时自动更新机制。
+- **自定义 API 密钥 (BYOK)**：允许填写用户自备的 Genius 与 Musixmatch 密钥，解锁更高查询配额与稳定性。
 
-### 3. 多歌词版本管理与媒体首页切换
-- 单一歌曲支持保存与管理多种歌词版本（如「官方原版」、「AI 识别版」、「日文翻译版」、「用户提供对齐版」、「视频转录版」）。
-- 提供「重命名」与「删除」特定版本功能，悬浮窗口即时同步切换。
-- **媒体首页歌词切换卡片**：播放音乐时直接在媒体首页呈现当前歌曲的所有可用版本，点击即可切换生效。
+### 3. 本地 Google 翻译与三种歌词显示/导出格式
+- **本地 Google 翻译补齐**：开启「启用本地 Google 翻译」后，当外语歌曲无现成翻译时，自动在后台将每行歌词翻译为中文并完整保留 `[mm:ss.xx]` 时间轴标签。
+- **歌词显示格式快速切换**：在设置首页与媒体首页均提供「仅原文」、「仅翻译」、「双语对照」三种显示模式一键切换。
+- **三种格式歌词导出**：单曲编辑器与本地歌词管理页面均支持选择导出为：
+  1. **标准 LRC**（仅原文，保留 `[mm:ss.xx]` 时间轴）
+  2. **双语 LRC**（原文与翻译同行或双时间轴 LRC）
+  3. **纯文本 TXT**（自动剥除所有时间戳标签）
 
-### 4. 严格优先级时间轴偏移量系统
-- 实现三层优先级：**单曲专属偏移量 > 全局 (App 层级) 偏移量 > 默认 0**。
-- 提供「保存为单曲偏移量」与「保存为全局偏移量」独立操作，切换不同版本时自动加载专属偏移量。
-- 主设置页提供全局偏移量快速微调面板 (`±100ms`, `±500ms`, `0`)。
+### 4. 多歌词版本管理与严格优先级时间轴偏移量
+- **多版本管理**：单一歌曲支持保存与切换多种歌词版本（官方原版、AI 识别版、翻译版、手动导入版），悬浮窗即时同步。
+- **严格优先级时间轴偏移量**：实现「单曲专属偏移量 > 全局 (App 层级) 偏移量 > 默认 0」，在「设置 -> 系统」内提供全局偏移量快速微调面板 (`±100ms`, `±500ms`, `0`)。
 
-### 5. 三层权限架构与系统状态查看
-- 集中于系统设置页面，客观展示三层权限运作状态：
-  - **1. 基础模式**：使用标准媒体通知监听与悬浮窗权限。
-  - **2. 无障碍模式**：通用稳定的前台 App 与媒体信息监听。
-  - **3. Shizuku 模式**：高权限免无障碍服务，提供极致流畅与稳定体验。
-- **Android 13+ 受限制设置解锁**：精准检测系统 restricted settings 状态，一键直达对应应用程序详细信息页面引导解除限制。
+### 5. 权限模式与外部控制 Intent API 安全防护
+- **权限模式**：在系统设置页面提供三种媒体检测方式说明与状态查看（基础通知监听、进阶无障碍辅助、Shizuku 模式），并支持 Android 13+ 受限制设置引导解锁。
+- **外部控制 Intent API 与自定义权限保护**：
+  - 声明并强制验证系统级自定义权限 `com.airlyrics.app.permission.ACCESS_LYRICS`。
+  - 支持 `SHOW_OVERLAY`、`HIDE_OVERLAY`、`TOGGLE_OVERLAY`、`QUERY_LYRICS` 与 `ACTION_SEND`（50KB 上限）。
+  - 支持 `PendingIntent` (`reply_pending_intent`) 双向安全回传状态与歌词内容，并通过 `creatorPackage` 验证调用端真实包名。
+  - 应用程序权限菜单采用后台异步加载与缓存机制，秒开不卡顿。
 
-### 6. 扩展与外部控制 (Intent API & 安全管控)
-- 支持标准 Android 广播 Intent API 控制：
-  - `SHOW_OVERLAY`：显示悬浮歌词窗。
-  - `HIDE_OVERLAY`：隐藏悬浮歌词窗。
-  - `TOGGLE_OVERLAY`：切换悬浮歌词窗显示/隐藏。
-  - `ACTION_SEND`：直接接收并加载外部传入之 LRC 歌词（具备 50KB 安全大小上限）。
-- **安全防护机制**：
-  - 开启 Intent API 时强制显示二次确认免责声明。
-  - 未知 App 调用处置策略：拒绝 (默认) / 询问 / 允许。
-  - 独立 Dialog 应用程序权限管理弹窗，支持即时关键字搜索与「仅显示音乐 App」筛选。
-
-### 7. AI 音频识别、参考歌词对齐与视频网址生成
-- **本地音频识别**：选取本机音频文件一键发送至服务器完成 AI 识别并生成歌词。
-- **手动输入参考歌词进行对齐**：支持粘贴无时间戳的纯文本歌词，结合本机音频发送至服务器 `/api/v1/align` 进行精准对齐；若服务器未连接，则自动降级为本地简易平均时间戳对齐。
-- **视频网址解析**：支持输入 YouTube、Bilibili 等音视频网址，即时检测服务器 yt-dlp 支持状态，通过后端自动下载音频并识别生成同步 LRC 歌词。
-- **整合 YTDLnis 本地下載**：若自建服务器未启用 yt-dlp 或面临音视频平台登录限制，可一键调用 YTDLnis 本地下载音频后进行识别与对齐。
-- **媒体页快捷入口**：支持在设置中自定义是否在媒体首页显示 AI 识别与视频解析区块。
-
-### 8. 全局运行日志系统 (AppLogger)
-- 独立子页面即时呈现 App 启动期间所有关键事件（权限、网络请求、来源查询、Intent 调用）。
-- 支持 INFO / WARN / ERROR 级别原创色彩标签、关键字搜索过滤。
-- 底部功能键支持：自动滚动开关、一键复制全部至剪贴板、导出为 TXT 文件与清空日志。
-
-### 9. 自定义色彩主题、简洁模式与原厂设计适配
-- 严格维持无 Emoji、标准中文与原创 5 种主题强调色。
-- **简洁模式 (Compact Mode)**：开启后自动隐藏所有辅助说明与描述文字，呈现最清爽纯粹的操作界面。
-- **自定义 HEX 颜色**：支持自由输入 Primary 与 Background HEX 码，提供即时预览色块、一键应用与重置回默认主题。
-- 底部导航栏固定置底，防止旋转横屏时切换为侧边栏。
+### 6. 全局运行日志 (AppLogger) 与亮暗色语义化主题
+- **全局运行日志**：实时记录权限、网络请求、来源查询与 Intent 调用，支持关键字过滤、复制与导出。
+- **亮暗色模式即时生效**：切换浅色或深色主题时即时重建界面与系统状态栏，自定义背景色与标签徽章自动适配亮暗对比度，并在「设置 -> 系统」内提供「简洁模式」开关。
 
 ---
 
@@ -98,20 +70,11 @@
 
 ### 系统需求
 - 最低 Android 8.0 (API Level 26)，建议 Android 11.0 (API Level 30) 以上。
-- 本 App 通过三层权限架构检测媒体状态：
-  > 标准音乐播放器（如 Spotify）：支持 MediaSession，体验最佳。  
-  > 视频平台（如 YouTube, Bilibili）：因其未完整实现标准协议，建议开启「无障碍模式」或「Shizuku 模式」以获得精准进度与同步。
 
-### 安装步骤
+### 安装与设置
 1. 前往 [Releases](https://github.com/milk120106/AetherLyric-app/releases) 下载最新 `AetherLyric-v{版本号}-{buildType}.apk`。
-2. 在手机上安装并授予「通知读取权限」与「悬浮窗权限」。
-3. 播放任意音乐，开启 AetherLyric 悬浮窗即可开始享受同步歌词。
-
-### 连接自建服务器
-1. 前往 **设置 -> AetherLyric 服务器**。
-2. 输入自建服务器名称与地址（例如 `http://192.168.1.100:8000`）。
-3. 点击「保存设置」，系统会自动进行连接与能力检测。
-4. 开启「启用 AetherLyric 服务器」开关即可享受双引擎模式。
+2. 安装并授予「通知读取权限」与「悬浮窗权限」。
+3. 若需连接自建服务器，前往 **设置 -> 服务器**，输入服务器地址并点选「测试连接」，即可启用双引擎或仅服务器模式。
 
 ---
 
@@ -122,9 +85,6 @@
 git clone https://github.com/milk120106/AetherLyric-app.git
 cd AetherLyric-app
 
-# 确保 local.properties 已配置 Android SDK 路径
-echo "sdk.dir=/path/to/your/android/sdk" > local.properties
-
 # 运行单元测试
 ./gradlew testDebugUnitTest
 
@@ -132,12 +92,10 @@ echo "sdk.dir=/path/to/your/android/sdk" > local.properties
 ./gradlew assembleDebug
 ```
 
-产出 APK 文件名格式为：`AetherLyric-v{版本号}-{buildType}.apk`  
-文件位置：`app/build/outputs/apk/debug/AetherLyric-v0.1.0-debug.apk`
+产出 APK 文件位置：`app/build/outputs/apk/debug/AetherLyric-v0.1.0-debug.apk`
 
 ---
 
 ## 许可证 (License)
 
-本项目基于 [AirLyrics](https://github.com/AirLyrics/AirLyrics) (MIT License) 进行 Fork 与二次开发。  
-本项目同样采用 [MIT 许可证](LICENSE)。
+本项目基于 [AirLyrics](https://github.com/AirLyrics/AirLyrics) (MIT License) 进行 Fork 与二次开发，采用 [MIT 许可证](LICENSE)。

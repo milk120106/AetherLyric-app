@@ -1,94 +1,25 @@
-# Project Architecture
+# AetherLyric-app 系統架構與開發說明
 
-[English](ARCHITECTURE.md) · [简体中文](ARCHITECTURE.zh-CN.md)
+[繁體中文](ARCHITECTURE.md) · [简体中文](ARCHITECTURE.zh-CN.md) · [English](ARCHITECTURE.en.md)
 
-AirLyrics uses Kotlin for the Android app and a Rust core for online lyrics lookup, connected through JNI.
+---
 
-## Project structure
+## 1. 核心架構概覽
 
-| Directory | Responsibility |
-| --- | --- |
-| `app/` | The single Gradle module `:app`, containing the Android app and tests |
-| `lyrics-core/` | Rust lyrics lookup, matching and parsing |
-| `scripts/` | Build checks and development tools |
-| `docs/` | User, contributor and architecture documentation |
+AetherLyric-app 採用模組化分層設計，結合本機多源歌詞檢索與自架伺服器 AI 語音轉錄能力：
 
-Gradle builds `libairlyrics_lyrics.so` with `cargo ndk` into `app/src/main/jniLibs/`. Use `-Pairlyrics.skipRustBuild=true` when the native library is already available.
+1. **介面與主題系統 (`ui/`)**
+   - 支援亮色與暗色模式即時重建（`MainActivityUiHost.toggleThemeMode()` 連動 `applyPaletteChange`），並自動驗證自訂背景色與主題亮度相容性。
+   - **設定首頁 (`SettingsHomePage`)**：集中管理搜尋策略、自動彈出候選清單開關、本地 Google 翻譯開關與歌詞顯示格式（僅原文 / 僅翻譯 / 雙語對照）快速切換。
+   - **系統設定頁 (`SystemSettingsPage`)**：集中管理「權限模式」（基礎通知監聽、進階無障礙輔助、狀態列擷取 / Shizuku）、「簡潔模式」與「全域時間軸偏移量」。
+   - **媒體首頁 (`MediaPage`)**：整合「歌詞顯示格式」快速切換、「手動搜尋歌詞（多源候選清單）」入口，以及「媒體頁 AI 歌詞辨識」摺疊開關與功能卡。
 
-## Android responsibilities
+2. **多源平行搜尋與翻譯引擎 (`lyrics/`)**
+   - `LyricsRepository.searchAllSourcesParallel`：使用協程平行查詢所有已啟用的本機來源、自訂 JSON 外掛與自架伺服器。
+   - **嚴格排序演算法**：依序比較 `(1) 使用者設定之來源優先順序 -> (2) 是否包含同步 LRC 時間軸 -> (3) 與目標曲目時長之差距絕對值`。
+   - `GoogleTranslateService`：當外語歌詞無現成翻譯且已開啟「啟用本地 Google 翻譯」時，於 `Dispatchers.IO` 逐行批次翻譯為 `zh-TW` 並完整保留 `[mm:ss.xx]` 時間戳。
+   - `LyricsExportFormatter`：支援匯出為「標準 LRC（僅原文）」、「雙語 LRC」與「純文字 TXT（剝除時間戳）」三種格式。
 
-| Package | Responsibility |
-| --- | --- |
-| `app` | Dependency wiring, lifecycle, ViewModels and user operations |
-| `ui` | Pages, components and UI-facing interfaces |
-| `media` | Media sessions, player selection and playback state |
-| `lyrics` | Lyrics lookup, import, parsing and storage |
-| `floating` | Foreground service, overlay controls and rendering |
-| `settings` / `displayscope` | Persistent settings / app-based visibility rules |
-| `core` / `design` / `feedback` / `i18n` | Shared models, design tokens, feedback contracts and localization |
-
-## Runtime flow
-
-```text
-Music app → media → Main UI / FloatingLyricsService
-                      → LyricsRepository → Local storage / JNI → Rust providers
-                      → FloatingLyricsRenderer → Overlay
-```
-
-The main UI handles user actions; the floating service follows the selected player. Stale media snapshots and lookup results are discarded. Automatic lookups cannot override an active manual search.
-
-Imports, edits and deletions notify the UI and floating service through `LyricsChangedBroadcast`. Cross-component actions use dedicated broadcast or command objects to avoid duplicate action and extra definitions.
-
-## Package boundaries
-
-`scripts/architecture/policy.json` defines the allowed dependencies in this generated table:
-
-<!-- architecture-policy:start -->
-```text
-core         -> (none)
-design       -> core.model
-displayscope -> (none)
-feedback     -> (none)
-settings     -> core.model, core.prefs, core.color
-lyrics       -> core
-i18n         -> core.model, core.prefs
-i18n.lyrics  -> lyrics.LyricsLookupErrorType, lyrics.LyricsLookupException, lyrics.storage.LyricsStorage
-media        -> core.model, core.prefs, i18n.LocalizedServiceContext
-ui           -> core.model, core.color, design, feedback.AirFeedback, i18n
-floating     -> core, design, displayscope, feedback, i18n, i18n.lyrics, lyrics, media, settings
-app          -> core, design, displayscope, feedback, i18n, i18n.lyrics, lyrics, media, settings, floating, ui
-```
-<!-- architecture-policy:end -->
-
-- `app` wires feature packages together. `ui` accesses data and operations through interfaces, without depending on feature implementations or settings storage.
-- `lyrics` and `media` are independent. `floating` can coordinate both, but cannot depend on the main UI.
-- Rules use the most specific registered group: allowing `i18n` does not allow `i18n.lyrics`. Interfaces must not expose forbidden implementation types either.
-
-Run the source, JVM dependency and policy checks with JDK 17 and Python 3.10+:
-
-```bash
-./scripts/check_architecture_boundaries.sh
-```
-
-`--source-only` is a quick precheck. Register new packages or dependency changes with a reason, then use `--update-docs` to refresh both language tables. Reflection strings, native code and external library internals remain outside the checks; code review is still required.
-
-## State and storage
-
-- `MainActivity` creates `MainGraph` to wire dependencies. `MainViewModel` owns UI state, `SavedStateHandle` preserves restorable operations, and `MainGraph` handles UI effects.
-- `LyricsStorage` manages lyrics and indexes in app storage or a user-selected SAF directory. Writes are serialized; word timing and generated plain LRC are updated together, with rollback attempted on failure.
-- Desired overlay visibility is separate from actual visibility. Pausing, locking the screen or visibility restrictions do not clear the user's intent to keep it enabled.
-- Settings use `settings/store/`. UI text uses Android string resources; longer help and changelog content lives in `assets/`.
-
-## Lyrics source limits and matching
-
-### Spicy Lyrics
-
-Spicy supports plain and word-by-word lyrics and must be enabled manually. Lyrics and edits stay inside the app, expire 30 days after acquisition, and cannot be exported, shared as files or backed up. Source and contributor credits are preserved when displaying lyrics; requests are subject to rate limits. See the [Spicy API terms](https://developers.spicylyrics.org/terms).
-
-Set `airlyrics.spicy.clientKey` in an untracked `local.properties` or user Gradle properties file, or use `AIRLYRICS_SPICY_CLIENT_KEY`. Use an `sl_pk_` key with client access enabled, never an `sl_sk_` secret key. Do not commit real keys. Without a configured key, Spicy is unavailable.
-
-### Lyrics matching
-
-Manual imports take priority over cached and online lyrics. Selected providers run in priority order and share title, artist, duration and album scoring. Queries broaden when needed, so a match may be a different recording. Spicy searches Spotify for candidates before fetching lyrics; line timing can remain available when word timing is missing.
-
-International title search first tries to resolve an international title, then uses the same matching flow. It preserves the original song identity for storage. See `lyrics-core/src/matching.rs` and the [matching documentation](lyrics-matching.md).
+3. **伺服器通訊與硬體加密儲存 (`network/aether/` & `settings/store/`)**
+   - `AetherLyricServerStore`：支援「雙引擎模式 (`DUAL_ENGINE`)」與「僅伺服器模式 (`SERVER_ONLY`)」，並透過 Android Keystore (`AES/GCM/NoPadding`) 加密儲存 `APP_ACCESS_TOKEN`、PIN 碼、問答驗證答案與 Proxy 密碼。
+   - `AetherLyricApiClient`：支援 HTTP(S) Proxy 代理、多層驗證標頭 (`Authorization`, `X-App-Access-Token`, `X-Auth-Pin`, `X-Auth-Answer`)，以及 RFC 6455 WebSocket (`/ws/tasks/{taskId}`) 即時進度監聽與 HTTP 輪詢自動降級。

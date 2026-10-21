@@ -99,8 +99,8 @@ internal fun createExecutionLogsPage(activity: MainUiHost): View = with(activity
                 // 等級 Badge
                 val (badgeBgColor, badgeTextColor) = when (entry.level) {
                     AppLogger.LogLevel.INFO -> colorAccent to colorOnAccent
-                    AppLogger.LogLevel.WARN -> 0xFFE9855A.toInt() to 0xFFFFFFFF.toInt()
-                    AppLogger.LogLevel.ERROR -> colorDanger to 0xFFFFFFFF.toInt()
+                    AppLogger.LogLevel.WARN -> colorAccentSoft to colorTextStrong
+                    AppLogger.LogLevel.ERROR -> colorDanger to android.graphics.Color.WHITE
                 }
 
                 addView(TextView(activity).apply {

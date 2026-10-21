@@ -25,6 +25,9 @@ object LyricsSettingsStore {
     private const val KEY_MUSIXMATCH_API_KEY = "musixmatch_api_key"
     private const val KEY_COMPACT_MODE = "compact_mode_enabled"
     private const val KEY_MEDIA_LYRICS_SELECTOR_ENABLED = "media_lyrics_selector_enabled"
+    private const val KEY_AUTO_SEARCH_POPUP_ENABLED = "auto_search_popup_enabled"
+    private const val KEY_LOCAL_GOOGLE_TRANSLATE_ENABLED = "local_google_translate_enabled"
+    private const val KEY_TRANSLATE_TARGET_LANG = "translate_target_lang"
 
     private fun store(context: Context) = prefs(context, PREFS_NAME)
 
@@ -109,7 +112,6 @@ object LyricsSettingsStore {
         store(context).setBoolean(KEY_AUTO_SAVE_LOCAL, enabled)
     }
 
-
     fun getContentDisplayMode(context: Context): LyricsContentDisplayMode {
         val value = store(context).getString(KEY_CONTENT_DISPLAY_MODE, LyricsContentDisplayMode.default.key)
 
@@ -180,6 +182,30 @@ object LyricsSettingsStore {
 
     fun setMediaLyricsSelectorEnabled(context: Context, enabled: Boolean) {
         store(context).setBoolean(KEY_MEDIA_LYRICS_SELECTOR_ENABLED, enabled)
+    }
+
+    fun isAutoSearchPopupEnabled(context: Context): Boolean {
+        return store(context).getBoolean(KEY_AUTO_SEARCH_POPUP_ENABLED, false)
+    }
+
+    fun setAutoSearchPopupEnabled(context: Context, enabled: Boolean) {
+        store(context).setBoolean(KEY_AUTO_SEARCH_POPUP_ENABLED, enabled)
+    }
+
+    fun isLocalGoogleTranslateEnabled(context: Context): Boolean {
+        return store(context).getBoolean(KEY_LOCAL_GOOGLE_TRANSLATE_ENABLED, false)
+    }
+
+    fun setLocalGoogleTranslateEnabled(context: Context, enabled: Boolean) {
+        store(context).setBoolean(KEY_LOCAL_GOOGLE_TRANSLATE_ENABLED, enabled)
+    }
+
+    fun getTranslateTargetLang(context: Context): String {
+        return store(context).getString(KEY_TRANSLATE_TARGET_LANG, "zh-TW")?.ifBlank { "zh-TW" } ?: "zh-TW"
+    }
+
+    fun setTranslateTargetLang(context: Context, lang: String) {
+        store(context).setString(KEY_TRANSLATE_TARGET_LANG, lang.trim().ifBlank { "zh-TW" })
     }
 
     fun getSettings(context: Context): LyricsSettings {

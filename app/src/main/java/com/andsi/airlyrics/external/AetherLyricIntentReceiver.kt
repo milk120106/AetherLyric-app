@@ -1,12 +1,13 @@
 package com.andsi.airlyrics.external
 
+import android.app.PendingIntent
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.os.Build
 import android.widget.Toast
 import androidx.core.content.ContextCompat
 import com.andsi.airlyrics.core.model.SongIdentity
-import com.andsi.airlyrics.floating.FloatingLyricsService
 import com.andsi.airlyrics.floating.FloatingServiceCommand
 import com.andsi.airlyrics.logging.AppLogger
 import com.andsi.airlyrics.lyrics.storage.LyricsStorage
@@ -16,29 +17,37 @@ import com.andsi.airlyrics.lyrics.storage.PlainLyricsStorageOps
 
 /**
  * 外部擴充 Intent 廣播接收器。
- * 支援外部 App 透過廣播發送指令控制懸浮窗與傳入純文字歌詞 (限制 50KB)。
+ * 具備系統級自訂權限保護 (`com.airlyrics.app.permission.ACCESS_LYRICS`)、
+ * 來源套件驗證與 `PendingIntent` (`reply_pending_intent`) 雙向回傳支援。
  */
 class AetherLyricIntentReceiver : BroadcastReceiver() {
 
     companion object {
+        const val PERMISSION_ACCESS_LYRICS = "com.airlyrics.app.permission.ACCESS_LYRICS"
         const val ACTION_SHOW_OVERLAY = "com.aetherlyric.app.action.SHOW_OVERLAY"
         const val ACTION_HIDE_OVERLAY = "com.aetherlyric.app.action.HIDE_OVERLAY"
         const val ACTION_TOGGLE_OVERLAY = "com.aetherlyric.app.action.TOGGLE_OVERLAY"
+        const val ACTION_QUERY_LYRICS = "com.aetherlyric.app.action.QUERY_LYRICS"
+        const val EXTRA_REPLY_PENDING_INTENT = "reply_pending_intent"
         const val MAX_TEXT_BYTES = 50 * 1024 // 50 KB 限制
     }
 
     override fun onReceive(context: Context, intent: Intent?) {
         if (intent == null) return
         val action = intent.action ?: return
+        val replyPendingIntent = extractReplyPendingIntent(intent)
 
         // 檢查 Intent API 是否啟用
         if (!ExternalControlStore.isIntentApiEnabled(context)) {
             AppLogger.w("IntentReceiver", "攔截到 Intent [$action]，但 Intent API 目前已關閉，已忽略此請求")
+            sendPendingReply(replyPendingIntent, context, status = "error", message = "Intent API 未啟用")
             return
         }
 
-        // 驗證來源 App 權限 (若有提供 calling package 或 extra)
-        val senderPackage = intent.getStringExtra("sender_package")
+        // 優先採用 PendingIntent 的系統驗證 creatorPackage，避免偽造 sender_package
+        val verifiedCreatorPkg = replyPendingIntent?.creatorPackage
+        val senderPackage = verifiedCreatorPkg
+            ?: intent.getStringExtra("sender_package")
             ?: intent.getStringExtra(Intent.EXTRA_PACKAGE_NAME)
             ?: "unknown"
 
@@ -53,6 +62,7 @@ class AetherLyricIntentReceiver : BroadcastReceiver() {
 
         if (!isAllowed) {
             AppLogger.w("IntentReceiver", "來自 App [$senderPackage] 的 Intent [$action] 遭到權限原則拒絕")
+            sendPendingReply(replyPendingIntent, context, status = "denied", message = "套件 [$senderPackage] 未獲授權")
             return
         }
 
@@ -65,6 +75,7 @@ class AetherLyricIntentReceiver : BroadcastReceiver() {
                     FloatingServiceCommand.Show.toIntent(context)
                 )
                 AppLogger.i("IntentReceiver", "已執行顯示懸浮窗指令")
+                sendPendingReply(replyPendingIntent, context, status = "ok", message = "已顯示懸浮窗")
             }
             ACTION_HIDE_OVERLAY -> {
                 ContextCompat.startForegroundService(
@@ -72,6 +83,7 @@ class AetherLyricIntentReceiver : BroadcastReceiver() {
                     FloatingServiceCommand.Hide.toIntent(context)
                 )
                 AppLogger.i("IntentReceiver", "已執行隱藏懸浮窗指令")
+                sendPendingReply(replyPendingIntent, context, status = "ok", message = "已隱藏懸浮窗")
             }
             ACTION_TOGGLE_OVERLAY -> {
                 ContextCompat.startForegroundService(
@@ -79,16 +91,64 @@ class AetherLyricIntentReceiver : BroadcastReceiver() {
                     FloatingServiceCommand.ToggleVisibleFromNotification.toIntent(context)
                 )
                 AppLogger.i("IntentReceiver", "已執行切換懸浮窗指令")
+                sendPendingReply(replyPendingIntent, context, status = "ok", message = "已切換懸浮窗狀態")
+            }
+            ACTION_QUERY_LYRICS -> {
+                handleQueryLyricsAction(context, intent, replyPendingIntent)
             }
             Intent.ACTION_SEND -> {
-                handleSendAction(context, intent, senderPackage)
+                handleSendAction(context, intent, senderPackage, replyPendingIntent)
             }
         }
     }
 
-    private fun handleSendAction(context: Context, intent: Intent, sender: String) {
+    private fun handleQueryLyricsAction(
+        context: Context,
+        intent: Intent,
+        replyPendingIntent: PendingIntent?
+    ) {
+        val title = intent.getStringExtra("title").orEmpty().trim()
+        val artist = intent.getStringExtra("artist").orEmpty().trim()
+        val durationMs = intent.getLongExtra("duration_ms", 0L)
+
+        if (title.isBlank()) {
+            sendPendingReply(replyPendingIntent, context, status = "error", message = "缺少歌曲標題 (title)")
+            return
+        }
+
+        val lrcContent = PlainLyricsStorageOps.readPlainLyrics(context, title, artist, durationMs).orEmpty()
+        if (lrcContent.isNotBlank()) {
+            sendPendingReply(
+                pendingIntent = replyPendingIntent,
+                context = context,
+                status = "ok",
+                message = "已找到本機快取歌詞",
+                title = title,
+                artist = artist,
+                lrcContent = lrcContent
+            )
+        } else {
+            sendPendingReply(
+                pendingIntent = replyPendingIntent,
+                context = context,
+                status = "not_found",
+                message = "本機尚無此歌曲之歌詞快取",
+                title = title,
+                artist = artist,
+                lrcContent = ""
+            )
+        }
+    }
+
+    private fun handleSendAction(
+        context: Context,
+        intent: Intent,
+        sender: String,
+        replyPendingIntent: PendingIntent?
+    ) {
         if (intent.type != "text/plain") {
             AppLogger.w("IntentReceiver", "ACTION_SEND 僅支援 text/plain 類型")
+            sendPendingReply(replyPendingIntent, context, status = "error", message = "僅支援 text/plain 類型")
             return
         }
 
@@ -96,6 +156,7 @@ class AetherLyricIntentReceiver : BroadcastReceiver() {
             ?: intent.getCharSequenceExtra(Intent.EXTRA_TEXT)?.toString()
         if (text.isNullOrBlank()) {
             AppLogger.w("IntentReceiver", "收到空白純文字內容")
+            sendPendingReply(replyPendingIntent, context, status = "error", message = "歌詞內容不得為空")
             return
         }
 
@@ -104,6 +165,7 @@ class AetherLyricIntentReceiver : BroadcastReceiver() {
             val err = "傳入歌詞大小超過 50KB 限制 (目前: ${byteSize / 1024} KB)，已拒絕接收"
             AppLogger.e("IntentReceiver", err)
             Toast.makeText(context, err, Toast.LENGTH_LONG).show()
+            sendPendingReply(replyPendingIntent, context, status = "error", message = err)
             return
         }
 
@@ -140,5 +202,51 @@ class AetherLyricIntentReceiver : BroadcastReceiver() {
 
         AppLogger.i("IntentReceiver", "成功透過 Intent 接收並儲存歌詞: $title - $artist (${byteSize} bytes)")
         Toast.makeText(context, "已成功接收外部歌詞：$title", Toast.LENGTH_SHORT).show()
+        sendPendingReply(
+            pendingIntent = replyPendingIntent,
+            context = context,
+            status = "ok",
+            message = "已成功儲存並套用外部歌詞",
+            title = title,
+            artist = artist,
+            lrcContent = text
+        )
+    }
+
+    private fun extractReplyPendingIntent(intent: Intent): PendingIntent? {
+        return try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                intent.getParcelableExtra(EXTRA_REPLY_PENDING_INTENT, PendingIntent::class.java)
+            } else {
+                @Suppress("DEPRECATION")
+                intent.getParcelableExtra(EXTRA_REPLY_PENDING_INTENT)
+            }
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    private fun sendPendingReply(
+        pendingIntent: PendingIntent?,
+        context: Context,
+        status: String,
+        message: String,
+        title: String? = null,
+        artist: String? = null,
+        lrcContent: String? = null
+    ) {
+        if (pendingIntent == null) return
+        try {
+            val replyIntent = Intent().apply {
+                putExtra("status", status)
+                putExtra("message", message)
+                if (title != null) putExtra("title", title)
+                if (artist != null) putExtra("artist", artist)
+                if (lrcContent != null) putExtra("lrc_content", lrcContent)
+            }
+            pendingIntent.send(context, 0, replyIntent)
+        } catch (e: Exception) {
+            AppLogger.w("IntentReceiver", "回傳 PendingIntent 失敗: ${e.message}")
+        }
     }
 }

@@ -2,6 +2,7 @@ package com.andsi.airlyrics.ui.pages.settings
 
 import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
+import android.content.res.ColorStateList
 import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
@@ -12,9 +13,14 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.EditText
 import android.widget.LinearLayout
+import android.widget.ProgressBar
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.widget.SwitchCompat
+import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import com.andsi.airlyrics.R
 import com.andsi.airlyrics.design.tokens.AirUiTokens
 import com.andsi.airlyrics.external.ExternalControlStore
@@ -103,7 +109,7 @@ internal fun createExternalControlSettingsPage(activity: MainUiHost): View = wit
 
         if (!isCompact) {
             addView(TextView(activity).apply {
-                text = "支援的 Broadcast Action：\n· com.aetherlyric.app.action.SHOW_OVERLAY\n· com.aetherlyric.app.action.HIDE_OVERLAY\n· com.aetherlyric.app.action.TOGGLE_OVERLAY\n· android.intent.action.SEND (text/plain, 限制 50KB)"
+                text = "支援的 Broadcast Action（需具備 com.airlyrics.app.permission.ACCESS_LYRICS 權限，並支援 reply_pending_intent 雙向回傳）：\n· com.aetherlyric.app.action.SHOW_OVERLAY\n· com.aetherlyric.app.action.HIDE_OVERLAY\n· com.aetherlyric.app.action.TOGGLE_OVERLAY\n· com.aetherlyric.app.action.QUERY_LYRICS\n· android.intent.action.SEND (text/plain, 限制 50KB)"
                 textSize = AirUiTokens.TextSize.Caption
                 setTextColor(colorTextMuted)
                 setPadding(0, dp(AirUiTokens.Space.Sm), 0, 0)
@@ -176,8 +182,19 @@ internal fun createExternalControlSettingsPage(activity: MainUiHost): View = wit
     return scroll(activity, container, maxWidthDp = 1200)
 }
 
+private data class CachedInstalledAppEntry(
+    val packageName: String,
+    val appName: String,
+    val isMusicCandidate: Boolean,
+    val isUserApp: Boolean
+)
+
+@Volatile
+private var cachedInstalledApps: List<CachedInstalledAppEntry>? = null
+
 /**
  * 彈窗選單 (Dialog) 選擇與設定個別應用程式權限
+ * 採用 Dispatchers.IO 非同步掃描 PackageManager 並搭配記憶體快取與重新整理按鈕，避免主執行緒卡頓。
  */
 private fun showAppPermissionsDialog(activity: MainUiHost) = with(activity) {
     showAirDialog(
@@ -200,40 +217,78 @@ private fun showAppPermissionsDialog(activity: MainUiHost) = with(activity) {
             addView(searchInput)
 
             var filterMusicOnly = true
+            val toolbarRow = LinearLayout(activity).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+                setPadding(0, dp(AirUiTokens.Space.Sm), 0, dp(AirUiTokens.Space.Sm))
+                layoutParams = LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    ViewGroup.LayoutParams.WRAP_CONTENT
+                )
+            }
+
             val filterToggle = TextView(activity).apply {
-                text = "目前篩選：僅音樂播放器 (點擊切換為所有 App)"
+                text = "目前篩選：僅音樂播放器 (點擊切換)"
                 textSize = AirUiTokens.TextSize.Caption
                 setTextColor(colorAccent)
-                setPadding(0, dp(AirUiTokens.Space.Sm), 0, dp(AirUiTokens.Space.Sm))
+                layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
                 enableSoftPressFeedback(AirUiTokens.Motion.DefaultPressScale)
             }
-            addView(filterToggle)
+
+            val refreshBtn = TextView(activity).apply {
+                text = getString(R.string.ui_refresh_media_status)
+                textSize = AirUiTokens.TextSize.Caption
+                typeface = Typeface.DEFAULT_BOLD
+                setTextColor(colorAccent)
+                setPadding(dp(AirUiTokens.Space.Md), dp(AirUiTokens.Space.Xxs), dp(AirUiTokens.Space.Md), dp(AirUiTokens.Space.Xxs))
+                background = GradientDrawable().apply {
+                    cornerRadius = dp(AirUiTokens.Radius.Pill).toFloat()
+                    setColor(colorSurfaceLight)
+                    setStroke(dp(AirUiTokens.Stroke.Hairline), colorStroke)
+                }
+                enableSoftPressFeedback(AirUiTokens.Motion.DefaultPressScale)
+            }
+
+            toolbarRow.addView(filterToggle)
+            toolbarRow.addView(refreshBtn)
+            addView(toolbarRow)
+
+            val loadingLayout = LinearLayout(activity).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+                setPadding(0, dp(AirUiTokens.Space.Lg), 0, dp(AirUiTokens.Space.Lg))
+                visibility = View.GONE
+                addView(ProgressBar(activity).apply {
+                    isIndeterminate = true
+                    indeterminateTintList = ColorStateList.valueOf(colorAccent)
+                    layoutParams = LinearLayout.LayoutParams(dp(24), dp(24)).apply {
+                        setMargins(0, 0, dp(AirUiTokens.Space.Sm), 0)
+                    }
+                })
+                addView(TextView(activity).apply {
+                    text = "正在載入已安裝的應用程式…"
+                    textSize = AirUiTokens.TextSize.BodySmall
+                    setTextColor(colorTextMuted)
+                })
+            }
+            addView(loadingLayout)
 
             val listContainer = LinearLayout(activity).apply {
                 orientation = LinearLayout.VERTICAL
             }
             addView(listContainer)
 
-            fun renderList(query: String) {
+            fun renderFromCache(query: String) {
+                val apps = cachedInstalledApps ?: return
                 listContainer.removeAllViews()
-                val pm = activity.packageManager
-                val packages = pm.getInstalledApplications(PackageManager.GET_META_DATA)
-                val filtered = packages.filter { app ->
-                    if (app.packageName == activity.packageName) return@filter false
-                    val appName = app.loadLabel(pm).toString()
-                    val matchesQuery = query.isBlank() ||
-                        appName.contains(query, ignoreCase = true) ||
-                        app.packageName.contains(query, ignoreCase = true)
+                val trimmed = query.trim()
+                val filtered = apps.asSequence().filter { app ->
+                    val matchesQuery = trimmed.isEmpty() ||
+                        app.appName.contains(trimmed, ignoreCase = true) ||
+                        app.packageName.contains(trimmed, ignoreCase = true)
                     if (!matchesQuery) return@filter false
-                    if (filterMusicOnly) {
-                        val name = app.packageName.lowercase()
-                        name.contains("music") || name.contains("spotify") || name.contains("audio") ||
-                        name.contains("player") || name.contains("netease") || name.contains("kugou") ||
-                        name.contains("qqmusic") || name.contains("youtube") || name.contains("podcast")
-                    } else {
-                        (app.flags and ApplicationInfo.FLAG_SYSTEM) == 0
-                    }
-                }.sortedBy { it.loadLabel(pm).toString() }.take(50)
+                    if (filterMusicOnly) app.isMusicCandidate else app.isUserApp
+                }.take(50).toList()
 
                 if (filtered.isEmpty()) {
                     listContainer.addView(TextView(activity).apply {
@@ -246,7 +301,7 @@ private fun showAppPermissionsDialog(activity: MainUiHost) = with(activity) {
                 }
 
                 filtered.forEach { app ->
-                    val appName = app.loadLabel(pm).toString()
+                    val appName = app.appName
                     val pkg = app.packageName
                     var record = ExternalControlStore.getAppPermission(activity, pkg)
                         ?: ExternalControlStore.AppPermissionRecord(pkg, appName)
@@ -302,21 +357,71 @@ private fun showAppPermissionsDialog(activity: MainUiHost) = with(activity) {
                 }
             }
 
+            fun loadAppsAsync(forceRefresh: Boolean) {
+                if (!forceRefresh && cachedInstalledApps != null) {
+                    loadingLayout.visibility = View.GONE
+                    renderFromCache(searchInput.text?.toString().orEmpty())
+                    return
+                }
+                loadingLayout.visibility = View.VISIBLE
+                listContainer.removeAllViews()
+                val selfPkg = activity.packageName
+                val pm = activity.packageManager
+                activity.activity.lifecycleScope.launch(Dispatchers.IO) {
+                    val scanned = runCatching {
+                        pm.getInstalledApplications(PackageManager.GET_META_DATA)
+                            .asSequence()
+                            .filter { it.packageName != selfPkg }
+                            .map { app ->
+                                val label = runCatching { app.loadLabel(pm).toString() }.getOrDefault(app.packageName)
+                                val lowerPkg = app.packageName.lowercase()
+                                val isMusic = lowerPkg.contains("music") || lowerPkg.contains("spotify") ||
+                                    lowerPkg.contains("audio") || lowerPkg.contains("player") ||
+                                    lowerPkg.contains("netease") || lowerPkg.contains("kugou") ||
+                                    lowerPkg.contains("qqmusic") || lowerPkg.contains("youtube") ||
+                                    lowerPkg.contains("podcast") || lowerPkg.contains("apple.android.music")
+                                val isUser = (app.flags and ApplicationInfo.FLAG_SYSTEM) == 0
+                                CachedInstalledAppEntry(
+                                    packageName = app.packageName,
+                                    appName = label,
+                                    isMusicCandidate = isMusic,
+                                    isUserApp = isUser || isMusic
+                                )
+                            }
+                            .sortedBy { it.appName.lowercase() }
+                            .toList()
+                    }.getOrDefault(emptyList())
+                    cachedInstalledApps = scanned
+                    withContext(Dispatchers.Main) {
+                        loadingLayout.visibility = View.GONE
+                        renderFromCache(searchInput.text?.toString().orEmpty())
+                    }
+                }
+            }
+
             filterToggle.setOnClickListener {
                 filterMusicOnly = !filterMusicOnly
-                filterToggle.text = if (filterMusicOnly) "目前篩選：僅音樂播放器 (點擊切換為所有 App)" else "目前篩選：所有已安裝 App (點擊切換為音樂播放器)"
-                renderList(searchInput.text.toString())
+                filterToggle.text = if (filterMusicOnly) {
+                    "目前篩選：僅音樂播放器 (點擊切換)"
+                } else {
+                    "目前篩選：所有已安裝 App (點擊切換)"
+                }
+                renderFromCache(searchInput.text?.toString().orEmpty())
+            }
+
+            refreshBtn.setOnClickListener {
+                loadAppsAsync(forceRefresh = true)
             }
 
             searchInput.addTextChangedListener(object : TextWatcher {
                 override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
                 override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
-                    renderList(s?.toString().orEmpty())
+                    renderFromCache(s?.toString().orEmpty())
                 }
                 override fun afterTextChanged(s: Editable?) {}
             })
 
-            renderList("")
+            loadAppsAsync(forceRefresh = false)
         }
     )
 }

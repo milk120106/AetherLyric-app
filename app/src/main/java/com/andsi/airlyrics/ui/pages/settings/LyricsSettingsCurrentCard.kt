@@ -1,4 +1,4 @@
-﻿package com.andsi.airlyrics.ui.pages.settings
+package com.andsi.airlyrics.ui.pages.settings
 
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
@@ -34,6 +34,7 @@ import com.andsi.airlyrics.ui.theme.colorSurfaceLight
 import com.andsi.airlyrics.ui.theme.colorTextMuted
 import com.andsi.airlyrics.lyrics.storage.LyricsVersionStore
 import com.andsi.airlyrics.ui.dialogs.showLyricsVersionDialog
+import com.andsi.airlyrics.ui.dialogs.showManualLyricsSearchBottomSheet
 import com.andsi.airlyrics.design.tokens.AirUiTokens
 
 
@@ -136,25 +137,26 @@ internal fun createCurrentLyricsCard(activity: MainUiHost): RefreshableSettingsC
             })
         }
 
-        if (!state.hasLocalWordByWordLyrics) {
+        if (!state.hasLocalWordByWordLyrics && songIdent != null) {
             body.addView(actionButton(activity, getString(R.string.ui_search_online_again)) {
-                activity.confirmOperation(
-                    action = ConfirmationAction.Search(state.operationTarget ?: return@actionButton),
-                    title = getString(R.string.ui_search_online_again_confirm),
-                    message = getString(R.string.ui_search_online_replace_cache_msg),
-                    positiveText = getString(R.string.ui_search)
-                )
+                showManualLyricsSearchBottomSheet(
+                    activity = activity,
+                    song = songIdent,
+                    searchMode = LyricsSearchMode.Original
+                ) {
+                    requestPopulate()
+                    playLocalRefreshFeedback(activity, body, feedback, getString(R.string.ui_updated))
+                }
             })
             body.addView(actionButton(activity, getString(R.string.ui_search_international_title)) {
-                activity.confirmOperation(
-                    action = ConfirmationAction.Search(
-                        state.operationTarget ?: return@actionButton,
-                        LyricsSearchMode.International
-                    ),
-                    title = getString(R.string.ui_search_international_title),
-                    message = getString(R.string.ui_search_online_replace_cache_msg),
-                    positiveText = getString(R.string.ui_search)
-                )
+                showManualLyricsSearchBottomSheet(
+                    activity = activity,
+                    song = songIdent,
+                    searchMode = LyricsSearchMode.International
+                ) {
+                    requestPopulate()
+                    playLocalRefreshFeedback(activity, body, feedback, getString(R.string.ui_updated))
+                }
             })
         }
     }

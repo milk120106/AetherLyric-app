@@ -1,20 +1,29 @@
 package com.andsi.airlyrics.network.aether
 
+import android.content.Context
+import android.util.Base64
+import com.andsi.airlyrics.logging.AppLogger
+import com.andsi.airlyrics.settings.store.AetherLyricServerStore
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
-import java.io.BufferedReader
+import java.io.BufferedInputStream
+import java.io.BufferedOutputStream
 import java.io.File
 import java.io.FileInputStream
-import java.io.InputStreamReader
-import java.io.OutputStream
+import java.io.InputStream
 import java.io.OutputStreamWriter
 import java.io.PrintWriter
 import java.net.HttpURLConnection
-import java.net.URL
+import java.net.InetSocketAddress
+import java.net.Socket
+import java.net.URI
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
+import java.security.SecureRandom
+import javax.net.ssl.SSLSocketFactory
 
 /**
  * 伺服器健康檢查回應資料結構。
@@ -63,7 +72,7 @@ data class TaskStatusResponse(
 
 /**
  * AetherLyric 伺服器通訊客戶端 (AetherLyricApiClient)。
- * 使用協程與原生連線串接 AetherLyric-server 之健康檢查、歌詞快查與端到端任務管線。
+ * 支援 Proxy 代理、多層加密驗證標頭、WebSocket 即時進度傳輸（自動降級至 HTTP 輪詢）以及端到端任務管線。
  */
 object AetherLyricApiClient {
     private const val DEFAULT_CONNECT_TIMEOUT_MS = 5000
@@ -80,12 +89,31 @@ object AetherLyricApiClient {
         return trimmed
     }
 
+    private fun openHttpConnection(
+        context: Context?,
+        urlStr: String,
+        method: String,
+        connectTimeoutMs: Int = DEFAULT_CONNECT_TIMEOUT_MS,
+        readTimeoutMs: Int = DEFAULT_READ_TIMEOUT_MS,
+        apiKey: String? = null
+    ): HttpURLConnection {
+        val conn = (AetherLyricServerStore.openConnectionWithProxy(context, urlStr) as HttpURLConnection).apply {
+            requestMethod = method
+            connectTimeout = connectTimeoutMs
+            readTimeout = readTimeoutMs
+            setRequestProperty("Accept", "application/json")
+        }
+        AetherLyricServerStore.applyAuthHeaders(context, conn, apiKey)
+        return conn
+    }
+
     /**
      * 測試伺服器連線狀態 (GET /api/v1/health)。
      */
     suspend fun testHealth(
         serverUrl: String,
-        apiKey: String? = null
+        apiKey: String? = null,
+        context: Context? = null
     ): Result<ServerHealthResponse> = withContext(Dispatchers.IO) {
         runCatching {
             val base = normalizeUrl(serverUrl)
@@ -93,15 +121,14 @@ object AetherLyricApiClient {
                 throw IllegalArgumentException("伺服器位址不得為空白")
             }
             val targetUrl = "$base/api/v1/health"
-            val conn = (URL(targetUrl).openConnection() as HttpURLConnection).apply {
-                requestMethod = "GET"
-                connectTimeout = DEFAULT_CONNECT_TIMEOUT_MS
-                readTimeout = DEFAULT_CONNECT_TIMEOUT_MS
-                setRequestProperty("Accept", "application/json")
-                if (!apiKey.isNullOrBlank()) {
-                    setRequestProperty("Authorization", "Bearer ${apiKey.trim()}")
-                }
-            }
+            val conn = openHttpConnection(
+                context = context,
+                urlStr = targetUrl,
+                method = "GET",
+                connectTimeoutMs = DEFAULT_CONNECT_TIMEOUT_MS,
+                readTimeoutMs = DEFAULT_CONNECT_TIMEOUT_MS,
+                apiKey = apiKey
+            )
 
             val code = conn.responseCode
             if (code == HttpURLConnection.HTTP_OK) {
@@ -123,12 +150,63 @@ object AetherLyricApiClient {
                     availableModels = modelsList,
                     ytdlpEnabled = json.optBoolean("ytdlp_enabled", false)
                 )
-            } else if (code == HttpURLConnection.HTTP_UNAUTHORIZED) {
-                throw IllegalStateException("未授權 (HTTP 401)：請檢查 ADMIN_API_KEY 是否正確")
+            } else if (code == HttpURLConnection.HTTP_UNAUTHORIZED || code == HttpURLConnection.HTTP_FORBIDDEN) {
+                throw IllegalStateException("驗證失敗 (HTTP $code)：請檢查 APP_ACCESS_TOKEN、PIN 碼或問答驗證設定")
             } else {
                 val errText = conn.errorStream?.bufferedReader(StandardCharsets.UTF_8)?.use { it.readText() } ?: ""
                 throw IllegalStateException("伺服器回應錯誤 (HTTP $code) $errText")
             }
+        }
+    }
+
+    /**
+     * 快查外部或快取歌詞（阻塞式，供 Repository 呼叫）。
+     */
+    fun searchLyricsBlocking(
+        serverUrl: String,
+        title: String,
+        artist: String = "",
+        duration: Float? = null,
+        apiKey: String? = null,
+        context: Context? = null
+    ): Result<LyricsSearchResult?> = runCatching {
+        val base = normalizeUrl(serverUrl)
+        if (base.isEmpty()) return@runCatching null
+        val encTitle = URLEncoder.encode(title, "UTF-8")
+        val encArtist = URLEncoder.encode(artist, "UTF-8")
+        var urlStr = "$base/api/v1/lyrics/search?title=$encTitle&artist=$encArtist"
+        if (duration != null && duration > 0) {
+            urlStr += "&duration=${duration.toInt()}"
+        }
+
+        val conn = openHttpConnection(
+            context = context,
+            urlStr = urlStr,
+            method = "GET",
+            connectTimeoutMs = DEFAULT_CONNECT_TIMEOUT_MS,
+            readTimeoutMs = DEFAULT_READ_TIMEOUT_MS,
+            apiKey = apiKey
+        )
+
+        val code = conn.responseCode
+        if (code == HttpURLConnection.HTTP_OK) {
+            val responseText = conn.inputStream.bufferedReader(StandardCharsets.UTF_8).use { it.readText() }
+            val json = JSONObject(responseText)
+            val hit = json.optBoolean("hit", false)
+            val lrcContent = json.optString("lrc_content", "").trim()
+            if (hit && lrcContent.isNotEmpty()) {
+                LyricsSearchResult(
+                    hit = true,
+                    trackTitle = json.optString("title", title),
+                    artist = json.optString("artist", artist),
+                    lrcContent = lrcContent,
+                    source = json.optString("source", "server")
+                )
+            } else {
+                null
+            }
+        } else {
+            null
         }
     }
 
@@ -140,48 +218,10 @@ object AetherLyricApiClient {
         title: String,
         artist: String = "",
         duration: Float? = null,
-        apiKey: String? = null
+        apiKey: String? = null,
+        context: Context? = null
     ): Result<LyricsSearchResult?> = withContext(Dispatchers.IO) {
-        runCatching {
-            val base = normalizeUrl(serverUrl)
-            val encTitle = URLEncoder.encode(title, "UTF-8")
-            val encArtist = URLEncoder.encode(artist, "UTF-8")
-            var urlStr = "$base/api/v1/lyrics/search?title=$encTitle&artist=$encArtist"
-            if (duration != null && duration > 0) {
-                urlStr += "&duration=${duration.toInt()}"
-            }
-
-            val conn = (URL(urlStr).openConnection() as HttpURLConnection).apply {
-                requestMethod = "GET"
-                connectTimeout = DEFAULT_CONNECT_TIMEOUT_MS
-                readTimeout = DEFAULT_READ_TIMEOUT_MS
-                setRequestProperty("Accept", "application/json")
-                if (!apiKey.isNullOrBlank()) {
-                    setRequestProperty("Authorization", "Bearer ${apiKey.trim()}")
-                }
-            }
-
-            val code = conn.responseCode
-            if (code == HttpURLConnection.HTTP_OK) {
-                val responseText = conn.inputStream.bufferedReader(StandardCharsets.UTF_8).use { it.readText() }
-                val json = JSONObject(responseText)
-                val hit = json.optBoolean("hit", false)
-                val lrcContent = json.optString("lrc_content", "").trim()
-                if (hit && lrcContent.isNotEmpty()) {
-                    LyricsSearchResult(
-                        hit = true,
-                        trackTitle = json.optString("title", title),
-                        artist = json.optString("artist", artist),
-                        lrcContent = lrcContent,
-                        source = json.optString("source", "server")
-                    )
-                } else {
-                    null
-                }
-            } else {
-                null
-            }
-        }
+        searchLyricsBlocking(serverUrl, title, artist, duration, apiKey, context)
     }
 
     /**
@@ -196,15 +236,16 @@ object AetherLyricApiClient {
         preferredSource: String = "lrclib",
         enableAiCorrection: Boolean = true,
         referenceLrc: String? = null,
-        apiKey: String? = null
+        apiKey: String? = null,
+        context: Context? = null
     ): Result<TaskCreateResponse> = withContext(Dispatchers.IO) {
         runCatching {
             val base = normalizeUrl(serverUrl)
             val targetUrl = "$base/api/v1/tasks"
 
             if (audioFile != null && audioFile.exists()) {
-                // 使用 multipart/form-data 上傳音訊檔案
                 uploadTaskWithAudio(
+                    context = context,
                     targetUrl = targetUrl,
                     audioFile = audioFile,
                     title = title,
@@ -216,8 +257,8 @@ object AetherLyricApiClient {
                     apiKey = apiKey
                 )
             } else {
-                // 使用 application/json 偏好設定發起任務
                 createTaskJson(
+                    context = context,
                     targetUrl = targetUrl,
                     title = title,
                     artist = artist,
@@ -232,6 +273,7 @@ object AetherLyricApiClient {
     }
 
     private fun createTaskJson(
+        context: Context?,
         targetUrl: String,
         title: String?,
         artist: String?,
@@ -241,16 +283,16 @@ object AetherLyricApiClient {
         referenceLrc: String?,
         apiKey: String?
     ): TaskCreateResponse {
-        val conn = (URL(targetUrl).openConnection() as HttpURLConnection).apply {
-            requestMethod = "POST"
-            connectTimeout = DEFAULT_CONNECT_TIMEOUT_MS
-            readTimeout = DEFAULT_READ_TIMEOUT_MS
+        val conn = openHttpConnection(
+            context = context,
+            urlStr = targetUrl,
+            method = "POST",
+            connectTimeoutMs = DEFAULT_CONNECT_TIMEOUT_MS,
+            readTimeoutMs = DEFAULT_READ_TIMEOUT_MS,
+            apiKey = apiKey
+        ).apply {
             doOutput = true
             setRequestProperty("Content-Type", "application/json; charset=UTF-8")
-            setRequestProperty("Accept", "application/json")
-            if (!apiKey.isNullOrBlank()) {
-                setRequestProperty("Authorization", "Bearer ${apiKey.trim()}")
-            }
         }
 
         val json = JSONObject().apply {
@@ -285,6 +327,7 @@ object AetherLyricApiClient {
     }
 
     private fun uploadTaskWithAudio(
+        context: Context?,
         targetUrl: String,
         audioFile: File,
         title: String?,
@@ -296,23 +339,22 @@ object AetherLyricApiClient {
         apiKey: String?
     ): TaskCreateResponse {
         val boundary = "===AetherLyricBoundary" + System.currentTimeMillis() + "==="
-        val conn = (URL(targetUrl).openConnection() as HttpURLConnection).apply {
-            requestMethod = "POST"
-            connectTimeout = DEFAULT_CONNECT_TIMEOUT_MS
-            readTimeout = 60000 // 上傳給予較長逾時時間
+        val conn = openHttpConnection(
+            context = context,
+            urlStr = targetUrl,
+            method = "POST",
+            connectTimeoutMs = DEFAULT_CONNECT_TIMEOUT_MS,
+            readTimeoutMs = 60000,
+            apiKey = apiKey
+        ).apply {
             doOutput = true
             doInput = true
             useCaches = false
             setRequestProperty("Content-Type", "multipart/form-data; boundary=$boundary")
-            setRequestProperty("Accept", "application/json")
-            if (!apiKey.isNullOrBlank()) {
-                setRequestProperty("Authorization", "Bearer ${apiKey.trim()}")
-            }
         }
 
         conn.outputStream.use { outputStream ->
             PrintWriter(OutputStreamWriter(outputStream, StandardCharsets.UTF_8), true).use { writer ->
-                // 表單欄位
                 fun writeFormField(name: String, value: String) {
                     writer.append("--$boundary\r\n")
                     writer.append("Content-Disposition: form-data; name=\"$name\"\r\n\r\n")
@@ -327,7 +369,6 @@ object AetherLyricApiClient {
                 writeFormField("enable_ai_correction", enableAiCorrection.toString())
                 if (!referenceLrc.isNullOrEmpty()) writeFormField("reference_lrc", referenceLrc)
 
-                // 檔案區塊
                 writer.append("--$boundary\r\n")
                 writer.append("Content-Disposition: form-data; name=\"audio\"; filename=\"${audioFile.name}\"\r\n")
                 writer.append("Content-Type: application/octet-stream\r\n\r\n")
@@ -369,37 +410,267 @@ object AetherLyricApiClient {
     suspend fun getTaskStatus(
         serverUrl: String,
         taskId: String,
-        apiKey: String? = null
+        apiKey: String? = null,
+        context: Context? = null
     ): Result<TaskStatusResponse> = withContext(Dispatchers.IO) {
         runCatching {
             val base = normalizeUrl(serverUrl)
             val targetUrl = "$base/api/v1/tasks/$taskId"
-            val conn = (URL(targetUrl).openConnection() as HttpURLConnection).apply {
-                requestMethod = "GET"
-                connectTimeout = DEFAULT_CONNECT_TIMEOUT_MS
-                readTimeout = DEFAULT_READ_TIMEOUT_MS
-                setRequestProperty("Accept", "application/json")
-                if (!apiKey.isNullOrBlank()) {
-                    setRequestProperty("Authorization", "Bearer ${apiKey.trim()}")
-                }
-            }
+            val conn = openHttpConnection(
+                context = context,
+                urlStr = targetUrl,
+                method = "GET",
+                connectTimeoutMs = DEFAULT_CONNECT_TIMEOUT_MS,
+                readTimeoutMs = DEFAULT_READ_TIMEOUT_MS,
+                apiKey = apiKey
+            )
 
             val code = conn.responseCode
             if (code == HttpURLConnection.HTTP_OK) {
                 val resText = conn.inputStream.bufferedReader(StandardCharsets.UTF_8).use { it.readText() }
-                val json = JSONObject(resText)
-                TaskStatusResponse(
-                    taskId = json.optString("task_id", taskId),
-                    status = json.optString("status", "unknown"),
-                    progress = json.optInt("progress", 0),
-                    stage = json.optString("stage", ""),
-                    resultLrc = json.optString("result").takeIf { it.isNotEmpty() }
-                        ?: json.optString("result_lrc").takeIf { it.isNotEmpty() },
-                    errorMessage = json.optString("error").takeIf { it.isNotEmpty() }
-                )
+                parseTaskStatusJson(taskId, JSONObject(resText))
             } else {
                 throw IllegalStateException("查詢任務進度失敗 (HTTP $code)")
             }
+        }
+    }
+
+    private fun parseTaskStatusJson(defaultTaskId: String, json: JSONObject): TaskStatusResponse {
+        return TaskStatusResponse(
+            taskId = json.optString("task_id", defaultTaskId),
+            status = json.optString("status", "unknown"),
+            progress = json.optInt("progress", 0),
+            stage = json.optString("stage", ""),
+            resultLrc = json.optString("result").takeIf { it.isNotEmpty() }
+                ?: json.optString("result_lrc").takeIf { it.isNotEmpty() },
+            errorMessage = json.optString("error").takeIf { it.isNotEmpty() }
+        )
+    }
+
+    /**
+     * 監聽任務即時進度：
+     * 若使用者開啟「使用 WebSocket 傳輸進度」，優先建立 WebSocket (`/ws/tasks/{taskId}`) 接收即時推播；
+     * 若 WebSocket 連線失敗、中斷或未開啟，則無縫降級為 HTTP 輪詢 (`getTaskStatus`)。
+     */
+    suspend fun observeTaskUntilDone(
+        context: Context,
+        serverUrl: String,
+        taskId: String,
+        apiKey: String? = null,
+        maxWaitSeconds: Int = 120,
+        onProgress: suspend (TaskStatusResponse) -> Unit
+    ): TaskStatusResponse? = withContext(Dispatchers.IO) {
+        val preferWs = AetherLyricServerStore.isWebSocketProgressEnabled(context)
+        if (preferWs) {
+            val wsTerminalResult = runCatching {
+                listenTaskWebSocket(context, serverUrl, taskId, apiKey, onProgress)
+            }.onFailure { err ->
+                AppLogger.w("AetherLyricApiClient", "WebSocket 進度連線中斷或失敗 (${err.message})，自動降級為 HTTP 輪詢")
+            }.getOrNull()
+
+            if (wsTerminalResult != null && (wsTerminalResult.status == "completed" || wsTerminalResult.status == "failed")) {
+                return@withContext wsTerminalResult
+            }
+        }
+
+        // HTTP 輪詢降級機制
+        val maxRetries = (maxWaitSeconds / 2).coerceAtLeast(15)
+        var lastResponse: TaskStatusResponse? = null
+        for (i in 0 until maxRetries) {
+            val statusRes = getTaskStatus(serverUrl, taskId, apiKey, context)
+            val info = statusRes.getOrNull()
+            if (info != null) {
+                lastResponse = info
+                withContext(Dispatchers.Main) {
+                    onProgress(info)
+                }
+                if (info.status == "completed" || info.status == "failed") {
+                    return@withContext info
+                }
+            }
+            delay(2000)
+        }
+        lastResponse
+    }
+
+    /**
+     * 輕量級 RFC 6455 WebSocket 客戶端連線至 /ws/tasks/{taskId}。
+     */
+    private suspend fun listenTaskWebSocket(
+        context: Context,
+        serverUrl: String,
+        taskId: String,
+        apiKey: String?,
+        onProgress: suspend (TaskStatusResponse) -> Unit
+    ): TaskStatusResponse? {
+        val base = normalizeUrl(serverUrl)
+        val uri = URI(base)
+        val isSecure = uri.scheme.equals("https", ignoreCase = true)
+        val host = uri.host ?: throw IllegalArgumentException("無效的伺服器主機名稱")
+        val port = if (uri.port != -1) uri.port else if (isSecure) 443 else 80
+        val basePath = uri.path?.removeSuffix("/") ?: ""
+        val wsPath = "$basePath/ws/tasks/$taskId"
+
+        val rawSocket = Socket()
+        rawSocket.connect(InetSocketAddress(host, port), DEFAULT_CONNECT_TIMEOUT_MS)
+        rawSocket.soTimeout = 30000
+
+        val socket: Socket = if (isSecure) {
+            val sslFactory = SSLSocketFactory.getDefault() as SSLSocketFactory
+            sslFactory.createSocket(rawSocket, host, port, true)
+        } else {
+            rawSocket
+        }
+
+        socket.use { activeSocket ->
+            val keyBytes = ByteArray(16).also { SecureRandom().nextBytes(it) }
+            val secKey = Base64.encodeToString(keyBytes, Base64.NO_WRAP)
+            val token = apiKey?.takeIf { it.isNotBlank() } ?: AetherLyricServerStore.getAppAccessToken(context)
+            val pin = AetherLyricServerStore.getAuthPin(context)
+            val answer = AetherLyricServerStore.getAuthChallengeAnswer(context)
+
+            val requestBuilder = StringBuilder().apply {
+                append("GET $wsPath HTTP/1.1\r\n")
+                append("Host: $host:$port\r\n")
+                append("Upgrade: websocket\r\n")
+                append("Connection: Upgrade\r\n")
+                append("Sec-WebSocket-Key: $secKey\r\n")
+                append("Sec-WebSocket-Version: 13\r\n")
+                if (token.isNotBlank()) {
+                    append("Authorization: Bearer ${token.trim()}\r\n")
+                    append("X-App-Access-Token: ${token.trim()}\r\n")
+                }
+                if (pin.isNotBlank()) {
+                    append("X-Auth-Pin: $pin\r\n")
+                }
+                if (answer.isNotBlank()) {
+                    val encAns = Base64.encodeToString(answer.toByteArray(StandardCharsets.UTF_8), Base64.NO_WRAP)
+                    append("X-Auth-Answer: $encAns\r\n")
+                }
+                append("\r\n")
+            }
+
+            val out = BufferedOutputStream(activeSocket.getOutputStream())
+            out.write(requestBuilder.toString().toByteArray(StandardCharsets.UTF_8))
+            out.flush()
+
+            val input = BufferedInputStream(activeSocket.getInputStream())
+            val statusLine = readHttpHeaderLine(input)
+            if (!statusLine.contains("101")) {
+                throw IllegalStateException("WebSocket 交握未返回 101: $statusLine")
+            }
+            // 略過剩餘 HTTP 回應標頭
+            while (true) {
+                val line = readHttpHeaderLine(input)
+                if (line.isEmpty()) break
+            }
+
+            AppLogger.i("AetherLyricApiClient", "已建立 WebSocket 任務進度連線: $wsPath")
+
+            var terminal: TaskStatusResponse? = null
+            while (terminal == null) {
+                val frameText = readWebSocketTextFrame(input, out) ?: break
+                if (frameText.isBlank()) continue
+                val json = runCatching { JSONObject(frameText) }.getOrNull() ?: continue
+                val statusInfo = parseTaskStatusJson(taskId, json)
+                withContext(Dispatchers.Main) {
+                    onProgress(statusInfo)
+                }
+                if (statusInfo.status == "completed" || statusInfo.status == "failed") {
+                    terminal = statusInfo
+                }
+            }
+            return terminal
+        }
+    }
+
+    private fun readHttpHeaderLine(input: InputStream): String {
+        val sb = StringBuilder()
+        var prev = -1
+        while (true) {
+            val b = input.read()
+            if (b == -1) break
+            if (prev == '\r'.code && b == '\n'.code) {
+                if (sb.isNotEmpty()) sb.setLength(sb.length - 1)
+                return sb.toString()
+            }
+            sb.append(b.toChar())
+            prev = b
+        }
+        return sb.toString()
+    }
+
+    private fun readWebSocketTextFrame(input: InputStream, out: BufferedOutputStream): String? {
+        val b0 = input.read()
+        if (b0 == -1) return null
+        val opcode = b0 and 0x0F
+        val b1 = input.read()
+        if (b1 == -1) return null
+        val masked = (b1 and 0x80) != 0
+        var payloadLen = (b1 and 0x7F).toLong()
+
+        if (payloadLen == 126L) {
+            val hi = input.read()
+            val lo = input.read()
+            if (hi == -1 || lo == -1) return null
+            payloadLen = ((hi and 0xFF) shl 8 or (lo and 0xFF)).toLong()
+        } else if (payloadLen == 127L) {
+            var len = 0L
+            for (i in 0 until 8) {
+                val b = input.read()
+                if (b == -1) return null
+                len = (len shl 8) or (b.toLong() and 0xFFL)
+            }
+            payloadLen = len
+        }
+
+        if (payloadLen > 2 * 1024 * 1024) {
+            throw IllegalStateException("WebSocket 單一訊息超過 2MB 安全上限")
+        }
+
+        val maskKey = if (masked) {
+            ByteArray(4).also { key ->
+                var read = 0
+                while (read < 4) {
+                    val r = input.read(key, read, 4 - read)
+                    if (r == -1) return null
+                    read += r
+                }
+            }
+        } else null
+
+        val payload = ByteArray(payloadLen.toInt())
+        var totalRead = 0
+        while (totalRead < payload.size) {
+            val r = input.read(payload, totalRead, payload.size - totalRead)
+            if (r == -1) return null
+            totalRead += r
+        }
+
+        if (maskKey != null) {
+            for (i in payload.indices) {
+                payload[i] = (payload[i].toInt() xor maskKey[i % 4].toInt()).toByte()
+            }
+        }
+
+        return when (opcode) {
+            0x1 -> String(payload, StandardCharsets.UTF_8) // Text frame
+            0x8 -> null // Close frame
+            0x9 -> {
+                // Ping -> 回應 Pong (opcode 0xA, Masked by client)
+                runCatching {
+                    val pongMask = ByteArray(4).also { SecureRandom().nextBytes(it) }
+                    out.write(0x8A)
+                    out.write(0x80 or (payload.size and 0x7F))
+                    out.write(pongMask)
+                    for (i in payload.indices) {
+                        out.write(payload[i].toInt() xor pongMask[i % 4].toInt())
+                    }
+                    out.flush()
+                }
+                ""
+            }
+            else -> ""
         }
     }
 
@@ -410,19 +681,20 @@ object AetherLyricApiClient {
         serverUrl: String,
         taskId: String,
         format: String = "srt",
-        apiKey: String? = null
+        apiKey: String? = null,
+        context: Context? = null
     ): Result<String> = withContext(Dispatchers.IO) {
         runCatching {
             val base = normalizeUrl(serverUrl)
             val targetUrl = "$base/api/v1/tasks/$taskId/export?format=$format"
-            val conn = (URL(targetUrl).openConnection() as HttpURLConnection).apply {
-                requestMethod = "GET"
-                connectTimeout = DEFAULT_CONNECT_TIMEOUT_MS
-                readTimeout = DEFAULT_READ_TIMEOUT_MS
-                if (!apiKey.isNullOrBlank()) {
-                    setRequestProperty("Authorization", "Bearer ${apiKey.trim()}")
-                }
-            }
+            val conn = openHttpConnection(
+                context = context,
+                urlStr = targetUrl,
+                method = "GET",
+                connectTimeoutMs = DEFAULT_CONNECT_TIMEOUT_MS,
+                readTimeoutMs = DEFAULT_READ_TIMEOUT_MS,
+                apiKey = apiKey
+            )
 
             val code = conn.responseCode
             if (code == HttpURLConnection.HTTP_OK) {
@@ -440,27 +712,28 @@ object AetherLyricApiClient {
         serverUrl: String,
         referenceLrc: String,
         asrSegments: List<Map<String, Any>> = emptyList(),
-        apiKey: String? = null
+        apiKey: String? = null,
+        context: Context? = null
     ): Result<String> = withContext(Dispatchers.IO) {
         runCatching {
             val base = normalizeUrl(serverUrl)
             if (base.isEmpty()) throw IllegalArgumentException("伺服器位址不得為空白")
             val targetUrl = "$base/api/v1/align"
-            val conn = (URL(targetUrl).openConnection() as HttpURLConnection).apply {
-                requestMethod = "POST"
-                connectTimeout = DEFAULT_CONNECT_TIMEOUT_MS
-                readTimeout = DEFAULT_READ_TIMEOUT_MS
+            val conn = openHttpConnection(
+                context = context,
+                urlStr = targetUrl,
+                method = "POST",
+                connectTimeoutMs = DEFAULT_CONNECT_TIMEOUT_MS,
+                readTimeoutMs = DEFAULT_READ_TIMEOUT_MS,
+                apiKey = apiKey
+            ).apply {
                 doOutput = true
                 setRequestProperty("Content-Type", "application/json; charset=utf-8")
-                setRequestProperty("Accept", "application/json")
-                if (!apiKey.isNullOrBlank()) {
-                    setRequestProperty("Authorization", "Bearer ${apiKey.trim()}")
-                }
             }
 
             val bodyJson = JSONObject().apply {
                 put("reference_lrc", referenceLrc)
-                val segmentsArray = org.json.JSONArray()
+                val segmentsArray = JSONArray()
                 asrSegments.forEach { seg ->
                     segmentsArray.put(JSONObject(seg))
                 }
@@ -479,7 +752,7 @@ object AetherLyricApiClient {
                 val json = JSONObject(respText)
                 val output = json.optString("lrc_output")
                 if (output.isNotBlank()) {
-                    com.andsi.airlyrics.logging.AppLogger.i("AetherLyricApiClient", "歌詞時間軸對齊成功 (offset: ${json.optDouble("offset")}s, confidence: ${json.optDouble("confidence")})")
+                    AppLogger.i("AetherLyricApiClient", "歌詞時間軸對齊成功 (offset: ${json.optDouble("offset")}s, confidence: ${json.optDouble("confidence")})")
                     output
                 } else {
                     throw IllegalStateException("對齊結果為空")
@@ -499,7 +772,8 @@ object AetherLyricApiClient {
         videoUrl: String,
         title: String? = null,
         artist: String? = null,
-        apiKey: String? = null
+        apiKey: String? = null,
+        context: Context? = null
     ): Result<TaskCreateResponse> = withContext(Dispatchers.IO) {
         runCatching {
             val base = normalizeUrl(serverUrl)
@@ -513,16 +787,16 @@ object AetherLyricApiClient {
             }
 
             fun postJson(urlStr: String): Pair<Int, String> {
-                val conn = (URL(urlStr).openConnection() as HttpURLConnection).apply {
-                    requestMethod = "POST"
-                    connectTimeout = DEFAULT_CONNECT_TIMEOUT_MS
-                    readTimeout = DEFAULT_READ_TIMEOUT_MS
+                val conn = openHttpConnection(
+                    context = context,
+                    urlStr = urlStr,
+                    method = "POST",
+                    connectTimeoutMs = DEFAULT_CONNECT_TIMEOUT_MS,
+                    readTimeoutMs = DEFAULT_READ_TIMEOUT_MS,
+                    apiKey = apiKey
+                ).apply {
                     doOutput = true
                     setRequestProperty("Content-Type", "application/json; charset=UTF-8")
-                    setRequestProperty("Accept", "application/json")
-                    if (!apiKey.isNullOrBlank()) {
-                        setRequestProperty("Authorization", "Bearer ${apiKey.trim()}")
-                    }
                 }
                 conn.outputStream.use { os ->
                     os.write(json.toString().toByteArray(StandardCharsets.UTF_8))
@@ -539,7 +813,6 @@ object AetherLyricApiClient {
 
             var (code, respText) = postJson(targetUrl)
             if (code == HttpURLConnection.HTTP_NOT_FOUND) {
-                // 若伺服器 /tasks/url 不存在，嘗試相容的 /api/v1/tasks
                 val fallbackUrl = "$base/api/v1/tasks"
                 val fallbackRes = postJson(fallbackUrl)
                 code = fallbackRes.first

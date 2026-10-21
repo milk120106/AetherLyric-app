@@ -294,7 +294,8 @@ internal fun createAudioAiTranscriptionCard(activity: MainUiHost): View = with(a
                         audioFile = file,
                         title = selectedTrackTitle.ifBlank { file.nameWithoutExtension },
                         artist = selectedTrackArtist.ifBlank { "Unknown" },
-                        apiKey = apiKey
+                        apiKey = apiKey,
+                        context = activity
                     )
 
                     val taskId = createResult.getOrThrow().taskId
@@ -303,65 +304,64 @@ internal fun createAudioAiTranscriptionCard(activity: MainUiHost): View = with(a
                     progressBar.progress = 5
 
                     var isDone = false
-                    var retryCount = 0
-                    while (!isDone && retryCount < 60) {
-                        delay(2000)
-                        retryCount++
-                        val statusRes = AetherLyricApiClient.getTaskStatus(serverUrl, taskId, apiKey)
-                        val taskInfo = statusRes.getOrNull()
-                        val status = taskInfo?.status
-                        val curProgress = taskInfo?.progress ?: 0
+                    val finalInfo = AetherLyricApiClient.observeTaskUntilDone(
+                        context = activity,
+                        serverUrl = serverUrl,
+                        taskId = taskId,
+                        apiKey = apiKey,
+                        maxWaitSeconds = 120
+                    ) { taskInfo ->
+                        val curProgress = taskInfo.progress
                         progressBar.progress = curProgress.coerceIn(5, 95)
+                        val stageLabel = taskInfo.stage.takeIf { it.isNotBlank() }?.let { " [$it]" } ?: ""
+                        statusText.text = "AI 辨識中$stageLabel... (進度: $curProgress%)"
+                    }
 
-                        when (status) {
-                            "completed" -> {
-                                isDone = true
-                                progressBar.progress = 100
-                                val exportRes = AetherLyricApiClient.exportLyrics(serverUrl, taskId, apiKey = apiKey)
-                                val lrcContent = exportRes.getOrThrow()
+                    when (finalInfo?.status) {
+                        "completed" -> {
+                            isDone = true
+                            progressBar.progress = 100
+                            val lrcContent = finalInfo.resultLrc?.takeIf { it.isNotBlank() }
+                                ?: AetherLyricApiClient.exportLyrics(serverUrl, taskId, apiKey = apiKey, context = activity).getOrThrow()
 
-                                val title = selectedTrackTitle.ifBlank { file.nameWithoutExtension }
-                                val artist = selectedTrackArtist.ifBlank { "Unknown" }
+                            val title = selectedTrackTitle.ifBlank { file.nameWithoutExtension }
+                            val artist = selectedTrackArtist.ifBlank { "Unknown" }
 
-                                PlainLyricsStorageOps.savePlainLyrics(
-                                    context = activity,
-                                    title = title,
-                                    artist = artist,
-                                    duration = 0L,
-                                    plainLrc = lrcContent,
-                                    plainSource = LyricsStorage.SOURCE_MANUAL_IMPORT,
-                                    plainProvider = "AetherLyric AI"
-                                )
+                            PlainLyricsStorageOps.savePlainLyrics(
+                                context = activity,
+                                title = title,
+                                artist = artist,
+                                duration = 0L,
+                                plainLrc = lrcContent,
+                                plainSource = LyricsStorage.SOURCE_MANUAL_IMPORT,
+                                plainProvider = "AetherLyric AI"
+                            )
 
-                                val songIdent = SongIdentity(title, artist, "", 0L)
-                                val newVer = LyricsVersion(
-                                    songKey = songIdent.storageKey(),
-                                    versionName = "AI辨識版",
-                                    lrcContent = lrcContent,
-                                    source = "server_ai"
-                                )
-                                LyricsVersionStore.addVersion(activity, newVer)
-                                LyricsVersionStore.switchVersion(activity, songIdent, newVer.versionId)
-                                activity.uiActions.reloadFloatingLyrics()
+                            val songIdent = SongIdentity(title, artist, "", 0L)
+                            val newVer = LyricsVersion(
+                                songKey = songIdent.storageKey(),
+                                versionName = "AI辨識版",
+                                lrcContent = lrcContent,
+                                source = "server_ai"
+                            )
+                            LyricsVersionStore.addVersion(activity, newVer)
+                            LyricsVersionStore.switchVersion(activity, songIdent, newVer.versionId)
+                            activity.uiActions.reloadFloatingLyrics()
 
-                                statusText.text = getString(R.string.ui_transcription_success)
-                                statusText.setTextColor(colorAccentMint)
-                                progressBar.visibility = View.GONE
-                                AppLogger.i("AudioAiTranscription", "音訊辨識成功: $title - $artist")
-                                Toast.makeText(activity, getString(R.string.ui_transcription_success), Toast.LENGTH_LONG).show()
-                            }
-                            "failed" -> {
-                                isDone = true
-                                progressBar.visibility = View.GONE
-                                val err = taskInfo?.errorMessage ?: "辨識失敗"
-                                statusText.text = getString(R.string.ui_transcription_failed, err)
-                                statusText.setTextColor(colorDanger)
-                                AppLogger.e("AudioAiTranscription", "AI 辨識任務失敗: $err")
-                                Toast.makeText(activity, "AI 辨識失敗: $err", Toast.LENGTH_LONG).show()
-                            }
-                            else -> {
-                                statusText.text = "AI 辨識中... (進度: $curProgress%)"
-                            }
+                            statusText.text = getString(R.string.ui_transcription_success)
+                            statusText.setTextColor(colorAccentMint)
+                            progressBar.visibility = View.GONE
+                            AppLogger.i("AudioAiTranscription", "音訊辨識成功: $title - $artist")
+                            Toast.makeText(activity, getString(R.string.ui_transcription_success), Toast.LENGTH_LONG).show()
+                        }
+                        "failed" -> {
+                            isDone = true
+                            progressBar.visibility = View.GONE
+                            val err = finalInfo.errorMessage ?: "辨識失敗"
+                            statusText.text = getString(R.string.ui_transcription_failed, err)
+                            statusText.setTextColor(colorDanger)
+                            AppLogger.e("AudioAiTranscription", "AI 辨識任務失敗: $err")
+                            Toast.makeText(activity, "AI 辨識失敗: $err", Toast.LENGTH_LONG).show()
                         }
                     }
 
@@ -462,26 +462,31 @@ internal fun createAudioAiTranscriptionCard(activity: MainUiHost): View = with(a
                                     title = title,
                                     artist = artist,
                                     referenceLrc = plainLyrics,
-                                    apiKey = apiKey
+                                    apiKey = apiKey,
+                                    context = activity
                                 )
 
                                 val taskId = taskRes.getOrThrow().taskId
-                                var retryCount = 0
-                                while (alignedLrc == null && retryCount < 45) {
-                                    delay(2000)
-                                    retryCount++
-                                    val statusRes = AetherLyricApiClient.getTaskStatus(serverUrl, taskId, apiKey)
-                                    val taskInfo = statusRes.getOrNull()
-                                    if (taskInfo?.status == "completed") {
-                                        alignedLrc = AetherLyricApiClient.exportLyrics(serverUrl, taskId, apiKey = apiKey).getOrNull()
-                                    } else if (taskInfo?.status == "failed") {
-                                        break
-                                    }
+                                val finalAlign = AetherLyricApiClient.observeTaskUntilDone(
+                                    context = activity,
+                                    serverUrl = serverUrl,
+                                    taskId = taskId,
+                                    apiKey = apiKey,
+                                    maxWaitSeconds = 90
+                                ) { info ->
+                                    statusText.text = "正在進行伺服器時間軸對齊... (${info.progress}%)"
+                                }
+                                if (finalAlign?.status == "completed") {
+                                    alignedLrc = finalAlign.resultLrc?.takeIf { it.isNotBlank() }
+                                        ?: AetherLyricApiClient.exportLyrics(serverUrl, taskId, apiKey = apiKey, context = activity).getOrNull()
                                 }
                             }
 
-                            // 2. 備用方案：若未連線或伺服器失敗，使用本地簡易時間軸對齊
+                            // 2. 備用方案：若未連線或伺服器失敗，且非「僅伺服器模式」，使用本地簡易時間軸對齊
                             if (alignedLrc.isNullOrBlank()) {
+                                if (AetherLyricServerStore.isServerOnlyMode(activity)) {
+                                    throw IllegalStateException("目前為「僅伺服器模式」，伺服器對齊未成功且已停用本地簡易對齊")
+                                }
                                 AppLogger.w("ReferenceAlign", "伺服器未連線或對齊失敗，採用本地簡易時間軸對齊")
                                 val retriever = MediaMetadataRetriever()
                                 val durationMs = try {
@@ -670,7 +675,8 @@ internal fun createAudioAiTranscriptionCard(activity: MainUiHost): View = with(a
                         videoUrl = url,
                         title = title,
                         artist = artist,
-                        apiKey = apiKey
+                        apiKey = apiKey,
+                        context = activity
                     )
 
                     val taskId = createRes.getOrThrow().taskId
@@ -679,62 +685,60 @@ internal fun createAudioAiTranscriptionCard(activity: MainUiHost): View = with(a
                     progressBar.progress = 10
 
                     var isDone = false
-                    var retryCount = 0
-                    while (!isDone && retryCount < 60) {
-                        delay(2500)
-                        retryCount++
-                        val statusRes = AetherLyricApiClient.getTaskStatus(serverUrl, taskId, apiKey)
-                        val taskInfo = statusRes.getOrNull()
-                        val status = taskInfo?.status
-                        val curProgress = taskInfo?.progress ?: 0
+                    val finalVideoInfo = AetherLyricApiClient.observeTaskUntilDone(
+                        context = activity,
+                        serverUrl = serverUrl,
+                        taskId = taskId,
+                        apiKey = apiKey,
+                        maxWaitSeconds = 150
+                    ) { taskInfo ->
+                        val curProgress = taskInfo.progress
                         progressBar.progress = curProgress.coerceIn(10, 95)
+                        statusText.text = "影音下載辨識中... (進度: $curProgress%)"
+                    }
 
-                        when (status) {
-                            "completed" -> {
-                                isDone = true
-                                progressBar.progress = 100
-                                val exportRes = AetherLyricApiClient.exportLyrics(serverUrl, taskId, apiKey = apiKey)
-                                val lrcContent = exportRes.getOrThrow()
+                    when (finalVideoInfo?.status) {
+                        "completed" -> {
+                            isDone = true
+                            progressBar.progress = 100
+                            val lrcContent = finalVideoInfo.resultLrc?.takeIf { it.isNotBlank() }
+                                ?: AetherLyricApiClient.exportLyrics(serverUrl, taskId, apiKey = apiKey, context = activity).getOrThrow()
 
-                                PlainLyricsStorageOps.savePlainLyrics(
-                                    context = activity,
-                                    title = title,
-                                    artist = artist,
-                                    duration = 0L,
-                                    plainLrc = lrcContent,
-                                    plainSource = LyricsStorage.SOURCE_MANUAL_IMPORT,
-                                    plainProvider = "Video URL"
-                                )
+                            PlainLyricsStorageOps.savePlainLyrics(
+                                context = activity,
+                                title = title,
+                                artist = artist,
+                                duration = 0L,
+                                plainLrc = lrcContent,
+                                plainSource = LyricsStorage.SOURCE_MANUAL_IMPORT,
+                                plainProvider = "Video URL"
+                            )
 
-                                val songIdent = SongIdentity(title, artist, "", 0L)
-                                val newVer = LyricsVersion(
-                                    songKey = songIdent.storageKey(),
-                                    versionName = activity.getString(R.string.ui_video_version_name),
-                                    lrcContent = lrcContent,
-                                    source = "video_url"
-                                )
-                                LyricsVersionStore.addVersion(activity, newVer)
-                                LyricsVersionStore.switchVersion(activity, songIdent, newVer.versionId)
-                                activity.uiActions.reloadFloatingLyrics()
+                            val songIdent = SongIdentity(title, artist, "", 0L)
+                            val newVer = LyricsVersion(
+                                songKey = songIdent.storageKey(),
+                                versionName = activity.getString(R.string.ui_video_version_name),
+                                lrcContent = lrcContent,
+                                source = "video_url"
+                            )
+                            LyricsVersionStore.addVersion(activity, newVer)
+                            LyricsVersionStore.switchVersion(activity, songIdent, newVer.versionId)
+                            activity.uiActions.reloadFloatingLyrics()
 
-                                statusText.text = getString(R.string.ui_transcription_success)
-                                statusText.setTextColor(colorAccentMint)
-                                progressBar.visibility = View.GONE
-                                AppLogger.i("VideoTask", "影片歌詞轉錄成功: $title - $artist")
-                                Toast.makeText(activity, "影片歌詞轉錄成功並已套用！", Toast.LENGTH_LONG).show()
-                            }
-                            "failed" -> {
-                                isDone = true
-                                progressBar.visibility = View.GONE
-                                val err = taskInfo?.errorMessage ?: "轉錄失敗"
-                                statusText.text = "影片轉錄失敗: $err"
-                                statusText.setTextColor(colorDanger)
-                                AppLogger.e("VideoTask", "影片解析失敗: $err")
-                                Toast.makeText(activity, "影片轉錄失敗: $err", Toast.LENGTH_LONG).show()
-                            }
-                            else -> {
-                                statusText.text = "影音下載辨識中... (進度: $curProgress%)"
-                            }
+                            statusText.text = getString(R.string.ui_transcription_success)
+                            statusText.setTextColor(colorAccentMint)
+                            progressBar.visibility = View.GONE
+                            AppLogger.i("VideoTask", "影片歌詞轉錄成功: $title - $artist")
+                            Toast.makeText(activity, "影片歌詞轉錄成功並已套用！", Toast.LENGTH_LONG).show()
+                        }
+                        "failed" -> {
+                            isDone = true
+                            progressBar.visibility = View.GONE
+                            val err = finalVideoInfo.errorMessage ?: "轉錄失敗"
+                            statusText.text = "影片轉錄失敗: $err"
+                            statusText.setTextColor(colorDanger)
+                            AppLogger.e("VideoTask", "影片解析失敗: $err")
+                            Toast.makeText(activity, "影片轉錄失敗: $err", Toast.LENGTH_LONG).show()
                         }
                     }
 

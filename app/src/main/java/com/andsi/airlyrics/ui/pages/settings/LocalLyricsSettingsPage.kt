@@ -1,14 +1,15 @@
 package com.andsi.airlyrics.ui.pages.settings
 
-import android.os.Environment
+import android.app.AlertDialog
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
 import android.widget.LinearLayout
 import android.widget.Toast
 import com.andsi.airlyrics.R
-import com.andsi.airlyrics.design.tokens.AirUiTokens
 import com.andsi.airlyrics.logging.AppLogger
+import com.andsi.airlyrics.lyrics.storage.LyricsExportFormat
+import com.andsi.airlyrics.lyrics.storage.LyricsExportFormatter
 import com.andsi.airlyrics.lyrics.storage.LyricsStorage
 import com.andsi.airlyrics.ui.components.actionButton
 import com.andsi.airlyrics.ui.components.bigText
@@ -20,16 +21,11 @@ import com.andsi.airlyrics.ui.components.scroll
 import com.andsi.airlyrics.ui.components.smallHint
 import com.andsi.airlyrics.ui.model.ConfirmationAction
 import com.andsi.airlyrics.ui.model.MainUiHost
-import com.andsi.airlyrics.ui.navigation.SettingsSubPage
 import com.andsi.airlyrics.ui.state.confirmOperation
-import java.io.File
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
 
 /**
  * 設定子頁面 3：本地歌詞管理 (LocalLyricsSettingsPage)
- * 集中管理本機歌詞儲存目錄、手動匯入、TXT/LRC 匯出、批次快取清除與最近歌詞清單。
+ * 集中管理本機歌詞儲存目錄、手動匯入、三種格式歌詞匯出、批次快取清除與最近歌詞清單。
  */
 internal fun createLocalLyricsSettingsPage(activity: MainUiHost): View = with(activity) {
     val container = pageContainer(activity, animateChanges = false)
@@ -55,43 +51,38 @@ internal fun createLocalLyricsSettingsPage(activity: MainUiHost): View = with(ac
         })
     })
 
-    // 2. 歌詞匯入與匯出
+    // 2. 歌詞匯入與多格式匯出
     container.addView(card(activity) {
         addView(bigText(activity, "歌詞匯入與匯出"))
-        addView(smallHint(activity, "支援手動選取 .lrc 檔案匯入，或將本機歌詞庫打包匯出為 TXT 備份檔"))
+        addView(smallHint(activity, "支援手動選取 .lrc 檔案匯入，或將本機歌詞庫匯出為標準 LRC、雙語 LRC 或純文字 TXT 檔案"))
 
         addView(actionButton(activity, "手動匯入本機歌詞 (LRC)") {
             uiActions.importLyricsForCurrentMedia()
         })
 
-        addView(actionButton(activity, getString(R.string.ui_export_all_txt)) {
-            try {
-                val allLyrics = LyricsStorage.listAllLyrics(activity)
-                if (allLyrics.isEmpty()) {
-                    Toast.makeText(activity, "本機尚無儲存的歌詞", Toast.LENGTH_SHORT).show()
-                    return@actionButton
-                }
-                val sb = StringBuilder()
-                sb.append("=== AetherLyric 本地歌詞匯出庫 (共 ${allLyrics.size} 首) ===\n")
-                sb.append("匯出時間: ${SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(Date())}\n\n")
-
-                allLyrics.forEach { item ->
-                    val text = LyricsStorage.readLocalLyricsItemText(activity, item, LyricsStorage.LocalLyricsEditTarget.PLAIN)
-                    sb.append("----------------------------------------\n")
-                    sb.append("歌曲: ${item.title} - ${item.artist}\n")
-                    sb.append("檔案: ${item.name}\n")
-                    sb.append("內容:\n${text.orEmpty()}\n\n")
-                }
-
-                val downloadDir = activity.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS) ?: activity.cacheDir
-                val exportFile = File(downloadDir, "AetherLyric_lyrics_export_${System.currentTimeMillis()}.txt")
-                exportFile.writeText(sb.toString(), Charsets.UTF_8)
-                AppLogger.i("LocalLyrics", "成功匯出 ${allLyrics.size} 首歌詞至: ${exportFile.absolutePath}")
-                Toast.makeText(activity, "已匯出至：${exportFile.name}", Toast.LENGTH_LONG).show()
-            } catch (e: Exception) {
-                AppLogger.e("LocalLyrics", "匯出歌詞失敗", e)
-                Toast.makeText(activity, "匯出失敗: ${e.message}", Toast.LENGTH_LONG).show()
+        addView(actionButton(activity, "匯出全部本機歌詞（選擇格式）") {
+            val allLyrics = LyricsStorage.listAllLyrics(activity)
+            if (allLyrics.isEmpty()) {
+                Toast.makeText(activity, "本機尚無儲存的歌詞", Toast.LENGTH_SHORT).show()
+                return@actionButton
             }
+            val formats = LyricsExportFormat.entries
+            val formatLabels = formats.map { it.displayTitle }.toTypedArray()
+            AlertDialog.Builder(activity)
+                .setTitle("選擇匯出格式")
+                .setItems(formatLabels) { _, which ->
+                    val chosen = formats[which]
+                    try {
+                        val exportFile = LyricsExportFormatter.exportBatchSongs(activity, allLyrics, chosen)
+                        AppLogger.i("LocalLyrics", "成功以 [${chosen.displayTitle}] 匯出 ${allLyrics.size} 首歌詞至: ${exportFile.name}")
+                        Toast.makeText(activity, "已匯出至：${exportFile.name}", Toast.LENGTH_LONG).show()
+                    } catch (e: Exception) {
+                        AppLogger.e("LocalLyrics", "匯出歌詞失敗", e)
+                        Toast.makeText(activity, "匯出失敗: ${e.message}", Toast.LENGTH_LONG).show()
+                    }
+                }
+                .setNegativeButton(getString(R.string.ui_cancel), null)
+                .show()
         })
     })
 

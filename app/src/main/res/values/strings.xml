@@ -422,10 +422,10 @@ Word-timed TTML:
     <string name="ui_search_international_title">Search with international title</string>
     <string name="ui_searching_international_title">Trying international-title search…</string>
 
-    <!-- AetherLyric Dual Engine Server Settings -->
-    <string name="ui_aetherlyric_server_title">AetherLyric Server (Dual-Engine Mode)</string>
+    <!-- Server Settings -->
+    <string name="ui_aetherlyric_server_title">Server</string>
     <string name="ui_aetherlyric_server_desc">Connect to self-hosted server for AI transcription, alignment, and fast lyrics</string>
-    <string name="ui_server_url_label">AetherLyric Server URL</string>
+    <string name="ui_server_url_label">Server URL</string>
     <string name="ui_server_url_hint">http://192.168.x.x:8000</string>
     <string name="ui_server_api_key_label">Admin API Key (ADMIN_API_KEY)</string>
     <string name="ui_server_api_key_hint">Leave empty if not required</string>
@@ -433,7 +433,7 @@ Word-timed TTML:
     <string name="ui_testing_connection">Testing connection…</string>
     <string name="ui_test_connection_success">Connected: Server Online (Queue: %1$d, Engine: %2$s)</string>
     <string name="ui_test_connection_failed">Connection failed: %1$s</string>
-    <string name="ui_enable_server_engine">Enable AetherLyric Server</string>
+    <string name="ui_enable_server_engine">Enable Server</string>
     <string name="ui_server_must_verify_first">Please test connection successfully before enabling</string>
     <string name="ui_server_engine_status_on">Dual-Engine Active: Prefer Self-hosted AI Server</string>
     <string name="ui_server_engine_status_off">Dual-Engine Inactive: Using Local Multi-source Engine</string>
@@ -465,14 +465,14 @@ Word-timed TTML:
     <string name="ui_offset_saved_for_song">Per-song offset saved successfully</string>
     <string name="ui_offset_saved_as_global">Global offset saved and applied</string>
 
-    <string name="ui_server_subpage_title">AetherLyric Server</string>
-    <string name="ui_server_subpage_desc">Manage server URL, admin key, connection and dual-engine mode</string>
+    <string name="ui_server_subpage_title">Server</string>
+    <string name="ui_server_subpage_desc">Manage server URL, admin key, connection and engine mode</string>
     <string name="ui_sources_subpage_title">Lyrics Sources</string>
     <string name="ui_sources_subpage_desc">Reorder and toggle sources, bring your own keys (BYOK)</string>
     <string name="ui_local_lyrics_subpage_title">Local Lyrics</string>
     <string name="ui_local_lyrics_subpage_desc">Local lyric files, storage directory, import/export and cache cleanup</string>
     <string name="ui_external_control_subpage_title">Extensions &amp; External Control</string>
-    <string name="ui_external_control_subpage_desc">App rules, Intent API and three-tier permission architecture</string>
+    <string name="ui_external_control_subpage_desc">App rules, Intent API and permission modes</string>
     <string name="ui_execution_logs_title">Execution Logs</string>
     <string name="ui_execution_logs_desc">View runtime events, lookup traces, and API request status</string>
 
@@ -503,7 +503,7 @@ Word-timed TTML:
     <string name="ui_behavior_ask">Ask</string>
     <string name="ui_behavior_allow">Allow</string>
 
-    <string name="ui_permission_tier_title">Three-Tier Permissions</string>
+    <string name="ui_permission_tier_title">Permission Modes</string>
     <string name="ui_tier_shizuku_status">Shizuku (Wireless Debugging)</string>
     <string name="ui_tier_accessibility_status">Accessibility Mode</string>
     <string name="ui_tier_basic_status">Basic Mode (Notification &amp; Overlay)</string>

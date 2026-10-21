@@ -1,12 +1,11 @@
-v1.2.7 - 2026-10-14
+v0.1.0 - 2026-10-21
 
-Added
-- Add Spicy Lyrics as an optional source with word-by-word lyrics.
-- Search by international song titles when the original title finds no suitable lyrics.
-
-Improved
-- Better layouts for long text, large fonts, and smaller windows.
-- Clearer lyrics search status and more reliable online searches.
-
-Fixed
-- Fix various bugs and improve stability.
+新增功能
+- 雙引擎架構與僅伺服器模式：支援連接自架伺服器進行雲端 AI 音訊歌詞辨識、時間軸錨點校正與跨平台歌詞檢索，並可自由切換「雙引擎模式」與「僅伺服器模式」。
+- 多源並行歌詞搜尋與候選清單：支援網易雲音樂、QQ 音樂、酷狗音樂、LRCLIB、Musixmatch、Genius、AZLyrics 與 Spicy Lyrics 等多平台並行查詢，並提供底部彈出清單（BottomSheet）檢視來源、LRC 時間軸狀態與歌曲時長。
+- 本地 Google 翻譯整合：未連接伺服器或歌詞無內建翻譯時，支援自動呼叫本地翻譯服務產生繁體中文雙語歌詞，並支援僅原文、僅翻譯、雙語對照三種顯示模式即時切換。
+- 媒體頁 AI 音訊歌詞辨識：支援選取本機音訊檔案、輸入參考純文字歌詞強制對齊時間軸、以及透過影片網址或 YTDLnis 協同下載轉錄歌詞，支援 WebSocket 即時進度推送與 HTTP 輪詢自動降級。
+- 自訂 JSON 歌詞來源外掛沙盒：支援匯入本機 .json 外掛或透過網址安裝，具備網路安全沙盒限制與背景定時自動更新機制。
+- 多層安全驗證與網路代理（Proxy）：支援 Android Keystore 硬體加密儲存 APP_ACCESS_TOKEN、PIN 碼、問答驗證與 HTTP(S) 代理伺服器設定。
+- 多格式歌詞匯出與多版本管理：單曲支援儲存多個歌詞版本並快速切換，支援匯出為標準 LRC（僅原文）、雙語 LRC（附帶翻譯行）與純文字 TXT（自動剝除時間戳）。
+- 權限模式與外部 Intent API：提供標準通知監聽、進階無障礙輔助、以及 Shizuku 偵測三種權限模式，並支援帶權限保護與 PendingIntent 雙向回傳的外部廣播控制介面。

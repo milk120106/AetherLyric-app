@@ -541,7 +541,10 @@ internal class MainActivityUiHost(
     }
 
     fun toggleThemeMode() {
-        AppNightMode.setDark(this, enabled = !isDarkTheme())
+        val nextDark = !isDarkTheme()
+        applyPaletteChange {
+            AppNightMode.setDark(this, enabled = nextDark)
+        }
     }
 
     fun selectThemeAccent(accent: ThemeAccent) {

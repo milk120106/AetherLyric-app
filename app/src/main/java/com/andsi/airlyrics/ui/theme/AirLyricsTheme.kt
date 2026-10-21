@@ -53,7 +53,9 @@ internal object AirLyricsTheme {
         val base = if (isDark) darkPalette else lightPalette
         val colors = ThemeAccentPalettes.resolve(accent, isDark)
         val effectiveAccent = customPrimary ?: colors.accent
-        val effectiveBackground = customBackground ?: base.background
+        val effectiveBackground = customBackground?.takeIf {
+            AirColorUtils.isDarkColor(it) == isDark
+        } ?: base.background
         val effectiveOnAccent = if (customPrimary != null) {
             if (AirColorUtils.isDarkColor(effectiveAccent)) Color.WHITE else Color.BLACK
         } else {
