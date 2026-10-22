@@ -39,6 +39,18 @@ data class ServerHealthResponse(
 )
 
 /**
+ * 登入裝置資訊資料結構。
+ */
+data class UserDeviceInfo(
+    val id: String,
+    val deviceModel: String,
+    val deviceName: String,
+    val lastLoginTime: String,
+    val ipAddress: String,
+    val isCurrentDevice: Boolean
+)
+
+/**
  * 伺服器線上歌詞查詢結果。
  */
 data class LyricsSearchResult(
@@ -151,7 +163,9 @@ object AetherLyricApiClient {
                     ytdlpEnabled = json.optBoolean("ytdlp_enabled", false)
                 )
             } else if (code == HttpURLConnection.HTTP_UNAUTHORIZED || code == HttpURLConnection.HTTP_FORBIDDEN) {
-                throw IllegalStateException("驗證失敗 (HTTP $code)：請檢查 APP_ACCESS_TOKEN、PIN 碼或問答驗證設定")
+                val errText = conn.errorStream?.bufferedReader(StandardCharsets.UTF_8)?.use { it.readText() } ?: ""
+                checkSecurityKickout(context, code, errText)
+                throw IllegalStateException("驗證失敗 (HTTP $code)：$errText")
             } else {
                 val errText = conn.errorStream?.bufferedReader(StandardCharsets.UTF_8)?.use { it.readText() } ?: ""
                 throw IllegalStateException("伺服器回應錯誤 (HTTP $code) $errText")
@@ -832,6 +846,212 @@ object AetherLyricApiClient {
                 )
             } else {
                 throw IllegalStateException("影片解析任務發起失敗 (HTTP $code): $respText")
+            }
+        }
+    }
+
+    /**
+     * 安全憑證攔截器通知監聽器。
+     */
+    var onSecurityMismatchListener: ((message: String) -> Unit)? = null
+
+    /**
+     * 檢查 HTTP 回應是否命中憑證與裝置不符防盜機制。
+     */
+    fun checkSecurityKickout(context: Context?, code: Int, errorBody: String) {
+        if (code == HttpURLConnection.HTTP_UNAUTHORIZED) {
+            if (errorBody.contains("DEVICE_MISMATCH", ignoreCase = true) ||
+                errorBody.contains("SUSPICIOUS_ACTIVITY", ignoreCase = true)
+            ) {
+                AppLogger.e("AetherLyricApiClient", "觸發安全憑證防盜機制：憑證與裝置不符，強制中斷連線與登出")
+                if (context != null) {
+                    AetherLyricServerStore.handleDeviceMismatchKickout(context)
+                }
+                onSecurityMismatchListener?.invoke("憑證與裝置不符，基於安全性考量已強制登出")
+            }
+        }
+    }
+
+    /**
+     * 帳號與密碼 (支援 2FA TOTP 6 位驗證碼) 登入認證 (POST /api/v1/auth/login)。
+     */
+    suspend fun loginWithCredentials(
+        serverUrl: String,
+        username: String,
+        password: String,
+        totpCode: String = "",
+        context: Context? = null
+    ): Result<String> = withContext(Dispatchers.IO) {
+        runCatching {
+            val base = normalizeUrl(serverUrl)
+            if (base.isEmpty()) throw IllegalArgumentException("伺服器位址不得為空白")
+            val targetUrl = "$base/api/v1/auth/login"
+            val conn = openHttpConnection(context, targetUrl, "POST").apply {
+                doOutput = true
+                setRequestProperty("Content-Type", "application/json; charset=UTF-8")
+            }
+            val body = JSONObject().apply {
+                put("username", username)
+                put("password", password)
+                if (totpCode.isNotBlank()) {
+                    put("totp_code", totpCode.trim())
+                }
+            }
+            conn.outputStream.use { it.write(body.toString().toByteArray(StandardCharsets.UTF_8)) }
+            val code = conn.responseCode
+            val respText = if (code in 200..299) {
+                conn.inputStream.bufferedReader(StandardCharsets.UTF_8).use { it.readText() }
+            } else {
+                val err = conn.errorStream?.bufferedReader(StandardCharsets.UTF_8)?.use { it.readText() } ?: ""
+                checkSecurityKickout(context, code, err)
+                throw IllegalStateException("登入失敗 (HTTP $code): $err")
+            }
+            val json = JSONObject(respText)
+            val token = json.optString("access_token", json.optString("token", ""))
+            if (token.isBlank()) throw IllegalStateException("伺服器未回傳有效 JWT Token")
+            if (context != null) {
+                AetherLyricServerStore.setActiveServerJwtToken(context, token)
+                AetherLyricServerStore.setConnectionVerified(context, true)
+            }
+            token
+        }
+    }
+
+    /**
+     * OAuth 第三方登入整合入口 (POST /api/v1/auth/oauth)。
+     */
+    suspend fun loginWithOAuth(
+        serverUrl: String,
+        provider: String,
+        authCode: String,
+        context: Context? = null
+    ): Result<String> = withContext(Dispatchers.IO) {
+        runCatching {
+            val base = normalizeUrl(serverUrl)
+            if (base.isEmpty()) throw IllegalArgumentException("伺服器位址不得為空白")
+            val targetUrl = "$base/api/v1/auth/oauth"
+            val conn = openHttpConnection(context, targetUrl, "POST").apply {
+                doOutput = true
+                setRequestProperty("Content-Type", "application/json; charset=UTF-8")
+            }
+            val body = JSONObject().apply {
+                put("provider", provider)
+                put("auth_code", authCode)
+            }
+            conn.outputStream.use { it.write(body.toString().toByteArray(StandardCharsets.UTF_8)) }
+            val code = conn.responseCode
+            val respText = if (code in 200..299) {
+                conn.inputStream.bufferedReader(StandardCharsets.UTF_8).use { it.readText() }
+            } else {
+                val err = conn.errorStream?.bufferedReader(StandardCharsets.UTF_8)?.use { it.readText() } ?: ""
+                checkSecurityKickout(context, code, err)
+                throw IllegalStateException("OAuth 登入失敗 (HTTP $code): $err")
+            }
+            val json = JSONObject(respText)
+            val token = json.optString("access_token", json.optString("token", ""))
+            if (token.isBlank()) throw IllegalStateException("伺服器未回傳有效 JWT Token")
+            if (context != null) {
+                AetherLyricServerStore.setActiveServerJwtToken(context, token)
+                AetherLyricServerStore.setConnectionVerified(context, true)
+            }
+            token
+        }
+    }
+
+    /**
+     * 多裝置管理：獲取已登入裝置列表 (GET /api/v1/auth/devices)。
+     */
+    suspend fun fetchDevices(
+        serverUrl: String,
+        context: Context? = null
+    ): Result<List<UserDeviceInfo>> = withContext(Dispatchers.IO) {
+        runCatching {
+            val base = normalizeUrl(serverUrl)
+            if (base.isEmpty()) throw IllegalArgumentException("伺服器位址不得為空白")
+            val targetUrl = "$base/api/v1/auth/devices"
+            val conn = openHttpConnection(context, targetUrl, "GET")
+            val code = conn.responseCode
+            val respText = if (code in 200..299) {
+                conn.inputStream.bufferedReader(StandardCharsets.UTF_8).use { it.readText() }
+            } else {
+                val err = conn.errorStream?.bufferedReader(StandardCharsets.UTF_8)?.use { it.readText() } ?: ""
+                checkSecurityKickout(context, code, err)
+                throw IllegalStateException("獲取裝置列表失敗 (HTTP $code): $err")
+            }
+            val json = JSONObject(respText)
+            val devicesArr = json.optJSONArray("devices") ?: JSONArray()
+            val list = mutableListOf<UserDeviceInfo>()
+            for (i in 0 until devicesArr.length()) {
+                val obj = devicesArr.getJSONObject(i)
+                list.add(
+                    UserDeviceInfo(
+                        id = obj.optString("id", obj.optString("device_id", "dev_$i")),
+                        deviceModel = obj.optString("model", obj.optString("device_model", "Android 裝置")),
+                        deviceName = obj.optString("name", obj.optString("device_name", "客戶端裝置")),
+                        lastLoginTime = obj.optString("last_login_time", "最近活動"),
+                        ipAddress = obj.optString("ip", obj.optString("ip_address", "-")),
+                        isCurrentDevice = obj.optBoolean("is_current", obj.optBoolean("current", i == 0))
+                    )
+                )
+            }
+            list
+        }
+    }
+
+    /**
+     * 登出其他裝置 (POST /api/v1/auth/devices/revoke-others)。
+     */
+    suspend fun revokeOtherDevices(
+        serverUrl: String,
+        context: Context? = null
+    ): Result<Boolean> = withContext(Dispatchers.IO) {
+        runCatching {
+            val base = normalizeUrl(serverUrl)
+            if (base.isEmpty()) throw IllegalArgumentException("伺服器位址不得為空白")
+            val targetUrl = "$base/api/v1/auth/devices/revoke-others"
+            val conn = openHttpConnection(context, targetUrl, "POST").apply {
+                doOutput = true
+                setRequestProperty("Content-Type", "application/json; charset=UTF-8")
+            }
+            conn.outputStream.use { it.write("{}".toByteArray(StandardCharsets.UTF_8)) }
+            val code = conn.responseCode
+            if (code in 200..299) {
+                true
+            } else {
+                val err = conn.errorStream?.bufferedReader(StandardCharsets.UTF_8)?.use { it.readText() } ?: ""
+                checkSecurityKickout(context, code, err)
+                throw IllegalStateException("登出其他裝置失敗 (HTTP $code): $err")
+            }
+        }
+    }
+
+    /**
+     * AI 錯字修正與歌名糾正 (POST /api/v1/lyrics/correct-query)。
+     */
+    suspend fun correctLyricsQuery(
+        serverUrl: String,
+        rawQuery: String,
+        context: Context? = null
+    ): Result<String> = withContext(Dispatchers.IO) {
+        runCatching {
+            val base = normalizeUrl(serverUrl)
+            if (base.isEmpty() || rawQuery.isBlank()) return@runCatching rawQuery
+            val targetUrl = "$base/api/v1/lyrics/correct-query"
+            val conn = openHttpConnection(context, targetUrl, "POST").apply {
+                doOutput = true
+                setRequestProperty("Content-Type", "application/json; charset=UTF-8")
+            }
+            val body = JSONObject().apply {
+                put("query", rawQuery.trim())
+            }
+            conn.outputStream.use { it.write(body.toString().toByteArray(StandardCharsets.UTF_8)) }
+            val code = conn.responseCode
+            if (code in 200..299) {
+                val respText = conn.inputStream.bufferedReader(StandardCharsets.UTF_8).use { it.readText() }
+                val json = JSONObject(respText)
+                json.optString("corrected_query", json.optString("query", rawQuery.trim()))
+            } else {
+                rawQuery.trim()
             }
         }
     }

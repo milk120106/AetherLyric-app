@@ -16,23 +16,49 @@ data class LyricsSettings(
 enum class PlainLyricsSearchSource(val key: String, val supportsWordTiming: Boolean = false) {
     /** Persisted compatibility value. New UI models local-only behavior with [LyricsSettings.autoSearchOnline]. */
     LOCAL_ONLY("local_only"),
+    LRCLIB("lrclib"),
     NETEASE("netease"),
     QQ("qq"),
     KUGOU("kugou"),
-    MUSIXMATCH("musixmatch"),
+    MIGU("migu"),
     GENIUS("genius"),
     AZLYRICS("azlyrics"),
-    LRCLIB("lrclib"),
+    LYRICS_OVH("lyrics_ovh"),
+    MEGALOBIZ("megalobiz"),
+    UTA_NET("uta_net"),
+    PETIT_LYRICS("petit_lyrics"),
+    BILIBILI("bilibili"),
+    COMMUNITY("community"),
+    GOOGLE_TRANSLATE("google_translate"),
+    CUSTOM_JSON("custom_json"),
+    MUSIXMATCH("musixmatch"),
     SPICY("spicy", supportsWordTiming = true);
 
     companion object {
         val default: PlainLyricsSearchSource = NETEASE
-        val onlineSources: List<PlainLyricsSearchSource> = listOf(NETEASE, QQ, KUGOU, LRCLIB, MUSIXMATCH, GENIUS, AZLYRICS, SPICY)
+        val onlineSources: List<PlainLyricsSearchSource> = listOf(
+            NETEASE,
+            QQ,
+            KUGOU,
+            LRCLIB,
+            MIGU,
+            GENIUS,
+            AZLYRICS,
+            LYRICS_OVH,
+            MEGALOBIZ,
+            UTA_NET,
+            PETIT_LYRICS,
+            BILIBILI,
+            COMMUNITY,
+            GOOGLE_TRANSLATE,
+            CUSTOM_JSON,
+            MUSIXMATCH,
+            SPICY
+        )
 
         fun fromKeyOrNull(key: String?): PlainLyricsSearchSource? {
             return entries.firstOrNull { it.key == key }
         }
-
     }
 }
 

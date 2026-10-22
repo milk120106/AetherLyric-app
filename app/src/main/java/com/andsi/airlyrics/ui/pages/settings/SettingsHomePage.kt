@@ -1,24 +1,27 @@
 package com.andsi.airlyrics.ui.pages.settings
 
-import android.graphics.Typeface
-import android.graphics.drawable.GradientDrawable
-import android.view.Gravity
 import android.view.View
-import android.view.ViewGroup
-import android.widget.LinearLayout
-import android.widget.TextView
-import androidx.appcompat.widget.SwitchCompat
 import com.andsi.airlyrics.R
 import com.andsi.airlyrics.design.tokens.AirUiTokens
 import com.andsi.airlyrics.external.ExternalControlStore
 import com.andsi.airlyrics.i18n.localizedPlainLyricsSourceList
 import com.andsi.airlyrics.settings.store.AetherLyricServerStore
-import com.andsi.airlyrics.settings.store.LyricsSettingsStore
 import com.andsi.airlyrics.ui.components.*
 import com.andsi.airlyrics.ui.model.MainUiHost
 import com.andsi.airlyrics.ui.navigation.SettingsSubPage
-import com.andsi.airlyrics.ui.theme.*
 
+/**
+ * 設定首頁 (SettingsHomePage)。
+ * 提供 8 個主要設定子頁面入口卡片：
+ * 1. 伺服器 (SERVER)
+ * 2. 歌詞源管理 (SOURCES)
+ * 3. 本地歌詞管理 (LOCAL_LYRICS)
+ * 4. 擴充與外部控制 (EXTERNAL_CONTROL)
+ * 5. 搜尋策略 (SEARCH_STRATEGY)
+ * 6. 介面與外觀 (APPEARANCE)
+ * 7. 系統 (SYSTEM)
+ * 8. 關於 (ABOUT)
+ */
 internal fun createSettingsHomePage(activity: MainUiHost): View = with(activity) createSettingsHomePage@ {
     val container = pageContainer(activity, animateChanges = false)
     val lyricsSettings = lyricsSettingsState()
@@ -26,86 +29,7 @@ internal fun createSettingsHomePage(activity: MainUiHost): View = with(activity)
     // 頁面頂端標題列與主題/夜間模式開關
     container.addView(settingsHomeHeader())
 
-    // 1. 搜尋策略與歌詞顯示設定卡片
-    container.addView(
-        card(activity) {
-            addView(bigText(activity, getString(R.string.ui_search_strategy)))
-
-            val autoSearchButton = actionButton(
-                activity,
-                getString(if (lyricsSettings.autoSearchOnline) R.string.ui_online_fallback_on else R.string.ui_online_fallback_off)
-            ) { }
-            autoSearchButton.setOnClickListener {
-                val enabled = uiActions.toggleLyricsAutoSearch()
-                autoSearchButton.setText(if (enabled) R.string.ui_online_fallback_on else R.string.ui_online_fallback_off)
-                playLocalRefreshFeedback(activity, autoSearchButton, null, getString(R.string.ui_updated))
-            }
-            addView(autoSearchButton)
-
-            val autoSaveButton = actionButton(
-                activity,
-                getString(if (lyricsSettings.autoSaveLocal) R.string.ui_auto_save_on else R.string.ui_auto_save_off)
-            ) { }
-            autoSaveButton.setOnClickListener {
-                val enabled = uiActions.toggleLyricsAutoSave()
-                autoSaveButton.setText(if (enabled) R.string.ui_auto_save_on else R.string.ui_auto_save_off)
-                playLocalRefreshFeedback(activity, autoSaveButton, null, getString(R.string.ui_updated))
-            }
-            addView(autoSaveButton)
-
-            // 自動搜尋時彈出結果清單開關 (預設關閉)
-            val autoPopupRow = LinearLayout(activity).apply {
-                orientation = LinearLayout.HORIZONTAL
-                gravity = Gravity.CENTER_VERTICAL
-                setPadding(0, dp(AirUiTokens.Space.Sm), 0, dp(AirUiTokens.Space.Xs))
-                val textCol = LinearLayout(activity).apply {
-                    orientation = LinearLayout.VERTICAL
-                    layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply {
-                        setMargins(0, 0, dp(AirUiTokens.Space.Md), 0)
-                    }
-                    addView(normalText(activity, "自動搜尋時彈出結果清單"))
-                    addView(smallHint(activity, "關閉時依優先級自動套用最佳結果；開啟時於自動搜尋完成後彈出多來源候選清單"))
-                }
-                val popupSwitch = SwitchCompat(activity).apply {
-                    isChecked = LyricsSettingsStore.isAutoSearchPopupEnabled(activity)
-                    applyAirThemeTint(activity)
-                    setOnCheckedChangeListener { _, checked ->
-                        LyricsSettingsStore.setAutoSearchPopupEnabled(activity, checked)
-                    }
-                }
-                addView(textCol)
-                addView(popupSwitch)
-            }
-            addView(autoPopupRow)
-
-            // 啟用本地 Google 翻譯開關
-            val googleTranslateRow = LinearLayout(activity).apply {
-                orientation = LinearLayout.HORIZONTAL
-                gravity = Gravity.CENTER_VERTICAL
-                setPadding(0, dp(AirUiTokens.Space.Xs), 0, dp(AirUiTokens.Space.Sm))
-                val textCol = LinearLayout(activity).apply {
-                    orientation = LinearLayout.VERTICAL
-                    layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply {
-                        setMargins(0, 0, dp(AirUiTokens.Space.Md), 0)
-                    }
-                    addView(normalText(activity, "啟用本地 Google 翻譯"))
-                    addView(smallHint(activity, "當外語歌曲無現成翻譯時，自動於背景呼叫 Google 翻譯補齊繁體中文對照並保留時間軸"))
-                }
-                val translateSwitch = SwitchCompat(activity).apply {
-                    isChecked = LyricsSettingsStore.isLocalGoogleTranslateEnabled(activity)
-                    applyAirThemeTint(activity)
-                    setOnCheckedChangeListener { _, checked ->
-                        LyricsSettingsStore.setLocalGoogleTranslateEnabled(activity, checked)
-                    }
-                }
-                addView(textCol)
-                addView(translateSwitch)
-            }
-            addView(googleTranslateRow)
-        }
-    )
-
-    // 2. 子頁面入口卡片清單 (透過 AdaptiveGridLayout 網格佈局)
+    // 8 個主要子頁面入口卡片清單 (透過 AdaptiveGridLayout 網格佈局自適應 1~2 欄)
     val subpageGrid = AdaptiveGridLayout(
         activity,
         2,
@@ -166,11 +90,35 @@ internal fun createSettingsHomePage(activity: MainUiHost): View = with(activity)
         }
     )
 
-    // 系統設定
+    // 子頁面 5: 搜尋策略
+    subpageGrid.addView(
+        settingsCategoryCard(
+            title = "搜尋策略",
+            subtitle = "自訂多來源檢索、自動備援、翻譯與全域時間軸對齊",
+            status = if (lyricsSettings.autoSearchOnline) "線上自動檢索" else "手動搜尋優先",
+            iconRes = R.drawable.ic_air_search
+        ) {
+            uiActions.openSettingsSubPage(SettingsSubPage.SEARCH_STRATEGY)
+        }
+    )
+
+    // 子頁面 6: 介面與外觀
+    subpageGrid.addView(
+        settingsCategoryCard(
+            title = "介面與外觀",
+            subtitle = "主題色彩、HEX 調色盤、動畫開關與轉場效果",
+            status = "主題與動畫設定",
+            iconRes = R.drawable.ic_air_style
+        ) {
+            uiActions.openSettingsSubPage(SettingsSubPage.APPEARANCE)
+        }
+    )
+
+    // 子頁面 7: 系統
     subpageGrid.addView(
         settingsCategoryCard(
             title = getString(R.string.ui_system),
-            subtitle = getString(R.string.ui_overlay_and_notification_permissions),
+            subtitle = "懸浮窗、通知存取、麥克風與特權模式",
             status = permissionSummary(),
             iconRes = R.drawable.ic_air_shield
         ) {
@@ -178,7 +126,7 @@ internal fun createSettingsHomePage(activity: MainUiHost): View = with(activity)
         }
     )
 
-    // 關於
+    // 子頁面 8: 關於
     subpageGrid.addView(
         settingsCategoryCard(
             title = getString(R.string.ui_about),

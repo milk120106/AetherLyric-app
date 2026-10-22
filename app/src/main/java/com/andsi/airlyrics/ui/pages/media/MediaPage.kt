@@ -11,6 +11,7 @@ import android.widget.LinearLayout
 import androidx.appcompat.widget.SwitchCompat
 import com.andsi.airlyrics.core.model.SongIdentity
 import com.andsi.airlyrics.design.tokens.AirUiTokens
+import com.andsi.airlyrics.ui.dialogs.showDualModeAudioSearchDialog
 import com.andsi.airlyrics.ui.dialogs.showManualLyricsSearchBottomSheet
 import com.andsi.airlyrics.ui.model.MainUiHost
 import com.andsi.airlyrics.ui.components.*
@@ -25,7 +26,7 @@ internal fun createMediaPage(activity: MainUiHost, animateContent: Boolean = tru
     val notificationAccessGranted = hasNotificationListenerAccess()
 
     val heading = sectionTitle(
-        activity, 
+        activity,
         getString(R.string.ui_media),
         getString(R.string.ui_choose_the_player_airlyrics_follows)
     ).apply {
@@ -50,7 +51,18 @@ internal fun createMediaPage(activity: MainUiHost, animateContent: Boolean = tru
             addView(statusPill(activity, state, selectedController.playbackState?.state == PlaybackState.STATE_PLAYING))
 
             val durationMs = selectedController.metadata?.getLong(MediaMetadata.METADATA_KEY_DURATION) ?: 0L
-            addView(actionButton(activity, "手動搜尋歌詞") {
+
+            val buttonRow = LinearLayout(activity).apply {
+                orientation = LinearLayout.HORIZONTAL
+                layoutParams = LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    ViewGroup.LayoutParams.WRAP_CONTENT
+                ).apply {
+                    setMargins(0, dp(AirUiTokens.Space.Sm), 0, 0)
+                }
+            }
+
+            val searchManualBtn = actionButton(activity, "手動搜尋歌詞") {
                 val songIdent = SongIdentity(
                     title = pageState.selectedTitle.orEmpty().ifBlank { title },
                     artist = pageState.selectedArtist.orEmpty(),
@@ -60,7 +72,23 @@ internal fun createMediaPage(activity: MainUiHost, animateContent: Boolean = tru
                 showManualLyricsSearchBottomSheet(activity, songIdent) {
                     rebuildCurrentPage(animateContent = false, animateTabs = false)
                 }
-            })
+            }.apply {
+                layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply {
+                    setMargins(0, 0, dp(4), 0)
+                }
+            }
+
+            val searchAudioBtn = actionButton(activity, "語音/內錄搜尋") {
+                showDualModeAudioSearchDialog(activity)
+            }.apply {
+                layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply {
+                    setMargins(dp(4), 0, 0, 0)
+                }
+            }
+
+            buttonRow.addView(searchManualBtn)
+            buttonRow.addView(searchAudioBtn)
+            addView(buttonRow)
         } else {
             addView(bigText(activity, getString(R.string.ui_no_media_detected_yet)))
             val hintText = getString(
@@ -71,7 +99,18 @@ internal fun createMediaPage(activity: MainUiHost, animateContent: Boolean = tru
                 }
             )
             addView(normalText(activity, hintText))
-            addView(actionButton(activity, "手動搜尋歌詞") {
+
+            val buttonRow = LinearLayout(activity).apply {
+                orientation = LinearLayout.HORIZONTAL
+                layoutParams = LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    ViewGroup.LayoutParams.WRAP_CONTENT
+                ).apply {
+                    setMargins(0, dp(AirUiTokens.Space.Sm), 0, 0)
+                }
+            }
+
+            val searchManualBtn = actionButton(activity, "手動搜尋歌詞") {
                 var titleInput: android.widget.EditText? = null
                 var artistInput: android.widget.EditText? = null
                 showAirDialog(
@@ -133,7 +172,23 @@ internal fun createMediaPage(activity: MainUiHost, animateContent: Boolean = tru
                         }
                     }
                 )
-            })
+            }.apply {
+                layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply {
+                    setMargins(0, 0, dp(4), 0)
+                }
+            }
+
+            val searchAudioBtn = actionButton(activity, "語音/內錄搜尋") {
+                showDualModeAudioSearchDialog(activity)
+            }.apply {
+                layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply {
+                    setMargins(dp(4), 0, 0, 0)
+                }
+            }
+
+            buttonRow.addView(searchManualBtn)
+            buttonRow.addView(searchAudioBtn)
+            addView(buttonRow)
         }
     }
     container.addView(currentMediaCard)

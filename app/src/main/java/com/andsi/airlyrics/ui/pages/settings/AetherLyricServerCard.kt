@@ -176,7 +176,16 @@ internal fun createAetherLyricServerCard(activity: MainUiHost): View = with(acti
             } else {
                 "Proxy: 未啟用"
             }
-            val authStr = if (hasAuth) "安全驗證: 已設定 (Keystore 加密)" else "安全驗證: 免憑證公開連線"
+            val jwtToken = AetherLyricServerStore.getActiveServerJwtToken(activity)
+            val hasJwt = jwtToken.isNotBlank()
+            val bioStr = if (AetherLyricServerStore.isBiometricEnabled(activity)) " · 生物辨識已啟用" else ""
+            val authStr = if (hasJwt) {
+                "安全驗證: 已登入 (JWT Keystore 加密$bioStr)"
+            } else if (hasAuth) {
+                "安全驗證: 已設定 (Keystore 加密)"
+            } else {
+                "安全驗證: 免憑證公開連線"
+            }
             securityStatusSummary.text = "$authStr · $proxyStr"
         }
         refreshSecuritySummary()
@@ -261,6 +270,230 @@ internal fun createAetherLyricServerCard(activity: MainUiHost): View = with(acti
             )
         }
         addView(authConfigBtn)
+
+        fun showLoginModal() {
+            var usernameInput: EditText? = null
+            var passwordInput: EditText? = null
+            var totpInput: EditText? = null
+            var biometricSwitch: SwitchCompat? = null
+            var isOAuthMode = false
+            var oauthProvider = "google"
+            var oauthCodeInput: EditText? = null
+
+            showAirDialog(
+                title = "伺服器帳號登入",
+                message = "登入自架 AetherLyric 伺服器以啟用同步與受保護之 API 功能",
+                positiveText = "登入",
+                negativeText = getString(R.string.ui_cancel),
+                body = {
+                    val modeRow = LinearLayout(activity).apply {
+                        orientation = LinearLayout.HORIZONTAL
+                        setPadding(0, 0, 0, dp(AirUiTokens.Space.Sm))
+                    }
+                    val formContainer = LinearLayout(activity).apply {
+                        orientation = LinearLayout.VERTICAL
+                    }
+
+                    fun buildForm() {
+                        formContainer.removeAllViews()
+                        if (!isOAuthMode) {
+                            formContainer.addView(smallHint(activity, "使用者名稱 / 帳號"))
+                            usernameInput = EditText(activity).apply {
+                                hint = "輸入伺服器帳號"
+                                textSize = AirUiTokens.TextSize.BodySmall
+                                setTextColor(colorTextStrong)
+                                setHintTextColor(colorTextMuted)
+                                isSingleLine = true
+                                setPadding(dp(AirUiTokens.Space.ButtonH), dp(AirUiTokens.Space.ControlV), dp(AirUiTokens.Space.ButtonH), dp(AirUiTokens.Space.ControlV))
+                                background = GradientDrawable().apply {
+                                    cornerRadius = dp(AirUiTokens.Radius.Md).toFloat()
+                                    setColor(colorSurfaceLight)
+                                    setStroke(dp(AirUiTokens.Stroke.Hairline), colorStroke)
+                                }
+                            }
+                            formContainer.addView(usernameInput)
+
+                            formContainer.addView(smallHint(activity, "密碼").apply {
+                                setPadding(0, dp(AirUiTokens.Space.Sm), 0, 0)
+                            })
+                            passwordInput = EditText(activity).apply {
+                                hint = "輸入密碼"
+                                textSize = AirUiTokens.TextSize.BodySmall
+                                setTextColor(colorTextStrong)
+                                setHintTextColor(colorTextMuted)
+                                inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD
+                                isSingleLine = true
+                                setPadding(dp(AirUiTokens.Space.ButtonH), dp(AirUiTokens.Space.ControlV), dp(AirUiTokens.Space.ButtonH), dp(AirUiTokens.Space.ControlV))
+                                background = GradientDrawable().apply {
+                                    cornerRadius = dp(AirUiTokens.Radius.Md).toFloat()
+                                    setColor(colorSurfaceLight)
+                                    setStroke(dp(AirUiTokens.Stroke.Hairline), colorStroke)
+                                }
+                            }
+                            formContainer.addView(passwordInput)
+
+                            formContainer.addView(smallHint(activity, "2FA TOTP 驗證碼 (選填)").apply {
+                                setPadding(0, dp(AirUiTokens.Space.Sm), 0, 0)
+                            })
+                            totpInput = EditText(activity).apply {
+                                hint = "6 位數動態驗證碼 (若伺服器已開啟 2FA)"
+                                textSize = AirUiTokens.TextSize.BodySmall
+                                setTextColor(colorTextStrong)
+                                setHintTextColor(colorTextMuted)
+                                inputType = InputType.TYPE_CLASS_NUMBER
+                                isSingleLine = true
+                                setPadding(dp(AirUiTokens.Space.ButtonH), dp(AirUiTokens.Space.ControlV), dp(AirUiTokens.Space.ButtonH), dp(AirUiTokens.Space.ControlV))
+                                background = GradientDrawable().apply {
+                                    cornerRadius = dp(AirUiTokens.Radius.Md).toFloat()
+                                    setColor(colorSurfaceLight)
+                                    setStroke(dp(AirUiTokens.Stroke.Hairline), colorStroke)
+                                }
+                            }
+                            formContainer.addView(totpInput)
+
+                            val bioRow = LinearLayout(activity).apply {
+                                orientation = LinearLayout.HORIZONTAL
+                                gravity = Gravity.CENTER_VERTICAL
+                                setPadding(0, dp(AirUiTokens.Space.Sm), 0, 0)
+                                addView(normalText(activity, "開啟生物辨識快速驗證").apply {
+                                    layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+                                })
+                                biometricSwitch = SwitchCompat(activity).apply {
+                                    isChecked = AetherLyricServerStore.isBiometricEnabled(activity)
+                                    applyAirThemeTint(activity)
+                                }
+                                addView(biometricSwitch)
+                            }
+                            formContainer.addView(bioRow)
+                        } else {
+                            formContainer.addView(smallHint(activity, "OAuth 第三方登入服務商"))
+                            val providerRow = LinearLayout(activity).apply {
+                                orientation = LinearLayout.HORIZONTAL
+                            }
+                            val googleBtn = actionButton(activity, "Google 登入") {
+                                oauthProvider = "google"
+                                Toast.makeText(activity, "已選取 Google OAuth", Toast.LENGTH_SHORT).show()
+                            }.apply {
+                                layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply {
+                                    setMargins(0, 0, dp(2), 0)
+                                }
+                            }
+                            val githubBtn = actionButton(activity, "GitHub 登入") {
+                                oauthProvider = "github"
+                                Toast.makeText(activity, "已選取 GitHub OAuth", Toast.LENGTH_SHORT).show()
+                            }.apply {
+                                layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply {
+                                    setMargins(dp(2), 0, 0, 0)
+                                }
+                            }
+                            providerRow.addView(googleBtn)
+                            providerRow.addView(githubBtn)
+                            formContainer.addView(providerRow)
+
+                            formContainer.addView(smallHint(activity, "OAuth 授權碼 (Auth Code)").apply {
+                                setPadding(0, dp(AirUiTokens.Space.Sm), 0, 0)
+                            })
+                            oauthCodeInput = EditText(activity).apply {
+                                hint = "輸入瀏覽器回傳之 OAuth 授權碼"
+                                textSize = AirUiTokens.TextSize.BodySmall
+                                setTextColor(colorTextStrong)
+                                setHintTextColor(colorTextMuted)
+                                isSingleLine = true
+                                setPadding(dp(AirUiTokens.Space.ButtonH), dp(AirUiTokens.Space.ControlV), dp(AirUiTokens.Space.ButtonH), dp(AirUiTokens.Space.ControlV))
+                                background = GradientDrawable().apply {
+                                    cornerRadius = dp(AirUiTokens.Radius.Md).toFloat()
+                                    setColor(colorSurfaceLight)
+                                    setStroke(dp(AirUiTokens.Stroke.Hairline), colorStroke)
+                                }
+                            }
+                            formContainer.addView(oauthCodeInput)
+                        }
+                    }
+
+                    val credModeBtn = actionButton(activity, "帳號密碼登入") {
+                        isOAuthMode = false
+                        buildForm()
+                    }.apply {
+                        layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply {
+                            setMargins(0, 0, dp(2), 0)
+                        }
+                    }
+                    val oauthModeBtn = actionButton(activity, "OAuth 授權登入") {
+                        isOAuthMode = true
+                        buildForm()
+                    }.apply {
+                        layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply {
+                            setMargins(dp(2), 0, 0, 0)
+                        }
+                    }
+                    modeRow.addView(credModeBtn)
+                    modeRow.addView(oauthModeBtn)
+                    addView(modeRow)
+
+                    buildForm()
+                    addView(formContainer)
+                },
+                onPositive = {
+                    val targetUrl = AetherLyricServerStore.getServerUrl(activity)
+                    if (targetUrl.isBlank()) {
+                        Toast.makeText(activity, "尚未設定伺服器位址", Toast.LENGTH_SHORT).show()
+                        return@showAirDialog
+                    }
+                    activity.activity.lifecycleScope.launch {
+                        val result = if (isOAuthMode) {
+                            val code = oauthCodeInput?.text?.toString()?.trim().orEmpty()
+                            AetherLyricApiClient.loginWithOAuth(targetUrl, oauthProvider, code, activity)
+                        } else {
+                            val u = usernameInput?.text?.toString()?.trim().orEmpty()
+                            val p = passwordInput?.text?.toString()?.trim().orEmpty()
+                            val totp = totpInput?.text?.toString()?.trim().orEmpty()
+                            if (u.isBlank() || p.isBlank()) {
+                                Toast.makeText(activity, "帳號與密碼不得為空白", Toast.LENGTH_SHORT).show()
+                                return@launch
+                            }
+                            AetherLyricApiClient.loginWithCredentials(targetUrl, u, p, totp, activity)
+                        }
+                        result.fold(
+                            onSuccess = { token ->
+                                val bio = biometricSwitch?.isChecked == true
+                                AetherLyricServerStore.setBiometricEnabled(activity, enabled = bio)
+                                refreshSecuritySummary()
+                                Toast.makeText(activity, "登入成功，已安全取得 JWT 憑證", Toast.LENGTH_SHORT).show()
+                            },
+                            onFailure = { err ->
+                                Toast.makeText(activity, "登入失敗：${err.message}", Toast.LENGTH_LONG).show()
+                            }
+                        )
+                    }
+                }
+            )
+        }
+
+        val loginBtn = actionButton(activity, "伺服器帳號登入（支援 2FA / OAuth / 生物辨識）") {
+            activeProfile = AetherLyricServerStore.getActiveProfile(activity)
+            val currentJwt = AetherLyricServerStore.getActiveServerJwtToken(activity)
+            val isCurrentlyLoggedIn = currentJwt.isNotBlank()
+
+            if (isCurrentlyLoggedIn) {
+                showAirDialog(
+                    title = "伺服器帳號狀態",
+                    message = "目前已成功登入並取得 Keystore 加密之 JWT 憑證。\n生物辨識快速登入：${if (AetherLyricServerStore.isBiometricEnabled(activity)) "已開啟" else "未開啟"}",
+                    positiveText = "重新登入",
+                    negativeText = "安全登出",
+                    onNegative = {
+                        AetherLyricServerStore.setActiveServerJwtToken(activity, "")
+                        refreshSecuritySummary()
+                        Toast.makeText(activity, "已安全登出並清除本地 JWT 憑證", Toast.LENGTH_SHORT).show()
+                    },
+                    onPositive = {
+                        showLoginModal()
+                    }
+                )
+            } else {
+                showLoginModal()
+            }
+        }
+        addView(loginBtn)
 
         val proxyConfigBtn = actionButton(activity, "HTTP(S) Proxy 代理連線設定") {
             activeProfile = AetherLyricServerStore.getActiveProfile(activity)
@@ -677,6 +910,7 @@ internal fun createAetherLyricServerCard(activity: MainUiHost): View = with(acti
                 result.fold(
                     onSuccess = { health ->
                         AetherLyricServerStore.setConnectionVerified(activity, true)
+                        AetherLyricServerStore.updateProfileHealth(activity, activeProfile.id, "在線 (HTTP 200)")
                         (statusDot.background as? GradientDrawable)?.setColor(colorAccentMint)
                         statusText.text = "伺服器在線 (HTTP 200)"
                         statusText.setTextColor(colorAccentMint)
@@ -696,6 +930,7 @@ internal fun createAetherLyricServerCard(activity: MainUiHost): View = with(acti
                     },
                     onFailure = { err ->
                         AetherLyricServerStore.setConnectionVerified(activity, false)
+                        AetherLyricServerStore.updateProfileHealth(activity, activeProfile.id, "離線")
                         (statusDot.background as? GradientDrawable)?.setColor(colorDanger)
                         statusText.text = "連線失敗"
                         statusText.setTextColor(colorDanger)

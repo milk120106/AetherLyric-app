@@ -87,7 +87,7 @@ gradle.taskGraph.whenReady {
     }
 }
 
-val appVersionName = "0.1.0"
+val appVersionName = "0.2.0"
 
 base {
     archivesName.set("AetherLyric-v$appVersionName")
@@ -104,7 +104,7 @@ android {
         minSdk = 26
         //noinspection OldTargetApi
         targetSdk = 36
-        versionCode = 18
+        versionCode = 20
         versionName = appVersionName
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 

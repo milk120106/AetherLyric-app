@@ -45,6 +45,7 @@ internal fun MainUiHost.systemPermissionCard(): View {
     val notificationsGranted = hasNotificationPermission()
     val notificationAccessGranted = hasNotificationListenerAccess()
     val usageAccessGranted = usageAccessAvailable && hasUsageStatsAccess()
+    val audioRecordGranted = com.andsi.airlyrics.app.platform.PermissionHelper.hasRecordAudioPermission(activity)
     val coreEntries = listOf(
         PermissionEntry(
             title = getString(R.string.ui_overlay),
@@ -84,6 +85,19 @@ internal fun MainUiHost.systemPermissionCard(): View {
             helpTitleRes = R.string.ui_usage_access,
             settingsAvailable = usageAccessAvailable,
             openSettings = uiActions.openUsageAccessSettings
+        ),
+        PermissionEntry(
+            title = "麥克風權限",
+            description = "用於語音搜尋與麥克風收音辨識歌詞",
+            status = getString(if (audioRecordGranted) R.string.ui_on else R.string.ui_off),
+            granted = audioRecordGranted,
+            purposeRes = null,
+            helpTitleRes = 0,
+            openSettings = {
+                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
+                    activity.requestPermissions(arrayOf(android.Manifest.permission.RECORD_AUDIO), 1002)
+                }
+            }
         )
     )
 

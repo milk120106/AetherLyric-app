@@ -40,6 +40,20 @@ internal object PermissionHelper {
         return DisplayScopeCapability.hasUsageAccess(context)
     }
 
+    fun hasRecordAudioPermission(context: Context): Boolean {
+        return context.checkSelfPermission(android.Manifest.permission.RECORD_AUDIO) ==
+            PackageManager.PERMISSION_GRANTED
+    }
+
+    fun requestRecordAudioPermission(
+        activity: AppCompatActivity,
+        requestPermission: (String) -> Unit
+    ) {
+        if (!hasRecordAudioPermission(activity)) {
+            requestPermission(android.Manifest.permission.RECORD_AUDIO)
+        }
+    }
+
     fun openUsageAccessSettings(activity: AppCompatActivity) {
         val appDetailsIntent = Intent(
             Settings.ACTION_USAGE_ACCESS_SETTINGS,

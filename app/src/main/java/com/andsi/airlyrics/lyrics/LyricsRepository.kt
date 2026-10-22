@@ -10,17 +10,26 @@ import com.andsi.airlyrics.core.model.SongIdentity
 import com.andsi.airlyrics.logging.AppLogger
 import com.andsi.airlyrics.lyrics.parser.LrcParser
 import com.andsi.airlyrics.lyrics.providers.AzLyricsPlainLyricsProvider
+import com.andsi.airlyrics.lyrics.providers.AetherLyricCommunityProvider
+import com.andsi.airlyrics.lyrics.providers.BilibiliLyricsProvider
+import com.andsi.airlyrics.lyrics.providers.CustomJsonLyricsProvider
 import com.andsi.airlyrics.lyrics.providers.CustomJsonPluginStore
 import com.andsi.airlyrics.lyrics.providers.GeniusPlainLyricsProvider
+import com.andsi.airlyrics.lyrics.providers.GoogleTranslateLyricsProvider
 import com.andsi.airlyrics.lyrics.providers.GoogleTranslateService
 import com.andsi.airlyrics.lyrics.providers.InternationalTitleResolver
 import com.andsi.airlyrics.lyrics.providers.KugouPlainLyricsProvider
 import com.andsi.airlyrics.lyrics.providers.LocalPlainLyricsProvider
 import com.andsi.airlyrics.lyrics.providers.LrclibPlainLyricsProvider
+import com.andsi.airlyrics.lyrics.providers.LyricsOvhPlainLyricsProvider
+import com.andsi.airlyrics.lyrics.providers.MegalobizPlainLyricsProvider
+import com.andsi.airlyrics.lyrics.providers.MiguPlainLyricsProvider
 import com.andsi.airlyrics.lyrics.providers.MusixmatchPlainLyricsProvider
 import com.andsi.airlyrics.lyrics.providers.NeteasePlainLyricsProvider
+import com.andsi.airlyrics.lyrics.providers.PetitLyricsPlainLyricsProvider
 import com.andsi.airlyrics.lyrics.providers.QqMusicPlainLyricsProvider
 import com.andsi.airlyrics.lyrics.providers.SpicyLyricsProvider
+import com.andsi.airlyrics.lyrics.providers.UtaNetPlainLyricsProvider
 import com.andsi.airlyrics.lyrics.storage.LyricsStorage
 import com.andsi.airlyrics.lyrics.storage.ManualLyricsSelectionStore
 import com.andsi.airlyrics.network.aether.AetherLyricApiClient
@@ -51,7 +60,8 @@ data class LyricsSearchCandidate(
     val matchedTitle: String,
     val matchedArtist: String,
     val previewSnippet: String,
-    val result: LyricsProviderResult
+    val result: LyricsProviderResult,
+    val updateTime: String = "剛剛"
 )
 
 /**
@@ -74,13 +84,22 @@ data class AutoSearchPopupEvent(
  */
 object LyricsRepository {
     private val onlinePlainLyricsProviders = mapOf(
+        PlainLyricsSearchSource.LRCLIB to LrclibPlainLyricsProvider,
         PlainLyricsSearchSource.NETEASE to NeteasePlainLyricsProvider,
         PlainLyricsSearchSource.QQ to QqMusicPlainLyricsProvider,
         PlainLyricsSearchSource.KUGOU to KugouPlainLyricsProvider,
-        PlainLyricsSearchSource.MUSIXMATCH to MusixmatchPlainLyricsProvider,
+        PlainLyricsSearchSource.MIGU to MiguPlainLyricsProvider,
         PlainLyricsSearchSource.GENIUS to GeniusPlainLyricsProvider,
         PlainLyricsSearchSource.AZLYRICS to AzLyricsPlainLyricsProvider,
-        PlainLyricsSearchSource.LRCLIB to LrclibPlainLyricsProvider,
+        PlainLyricsSearchSource.LYRICS_OVH to LyricsOvhPlainLyricsProvider,
+        PlainLyricsSearchSource.MEGALOBIZ to MegalobizPlainLyricsProvider,
+        PlainLyricsSearchSource.UTA_NET to UtaNetPlainLyricsProvider,
+        PlainLyricsSearchSource.PETIT_LYRICS to PetitLyricsPlainLyricsProvider,
+        PlainLyricsSearchSource.BILIBILI to BilibiliLyricsProvider,
+        PlainLyricsSearchSource.COMMUNITY to AetherLyricCommunityProvider,
+        PlainLyricsSearchSource.GOOGLE_TRANSLATE to GoogleTranslateLyricsProvider,
+        PlainLyricsSearchSource.CUSTOM_JSON to CustomJsonLyricsProvider,
+        PlainLyricsSearchSource.MUSIXMATCH to MusixmatchPlainLyricsProvider,
         PlainLyricsSearchSource.SPICY to SpicyLyricsProvider
     )
 
@@ -573,9 +592,10 @@ internal class LyricsRepositoryEngine(
                 continue
             }
 
-            // 檢查是否具備 LRC 時間軸標籤；若具備則立即命中，若僅為純文字則暫存為備案並繼續尋找具備時間軸之來源
-            val hasSyncedTimers = LrcParser.parse(result.plainLrc).any { !it.isMetadata && it.timeMs > 0L } ||
-                result.plainLrc.contains("[00:")
+            // 檢查是否具備 LRC 時間軸標籤（含原文或翻譯）；若具備則立即命中，若僅為純文字則暫存為備案並繼續尋找具備時間軸之來源
+            val inspectLrc = result.plainLrc.ifBlank { result.translatedLrc.orEmpty() }
+            val hasSyncedTimers = inspectLrc.contains("[00:") ||
+                LrcParser.parse(inspectLrc).any { !it.isMetadata && it.timeMs > 0L }
             if (hasSyncedTimers) {
                 lookupLogger.logProviderProgress(
                     provider = provider,

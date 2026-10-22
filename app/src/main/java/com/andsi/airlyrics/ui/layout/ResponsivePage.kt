@@ -69,7 +69,7 @@ internal class ResponsivePage(
                 setPadding(padding, host.dp(if (host.windowLayout.compact) 4 else 12), padding, host.dp(24))
             }
             cards.forEachIndexed { index, card ->
-                if (columns == 1 || (index in leftIndices) == (column == 0)) {
+                if (columns == 1 || (index % columns == column)) {
                     body.addView(card, cardParams[index])
                 }
             }
@@ -80,7 +80,7 @@ internal class ResponsivePage(
 
     private fun bindPanes() {
         bindings = panes.mapIndexed { index, pane ->
-            val paneKey = if (mode == 1) "$key.single" else "$key.${if (index == 0) "left" else "right"}"
+            val paneKey = if (mode == 1) "$key.single" else "$key.col$index"
             host.bindInteractionScroll(pane, paneKey) {
                 host.interactions.write("$key.active") { putString("key", paneKey) }
             }
@@ -105,9 +105,9 @@ internal class ResponsivePage(
         lastWidth = width
         lastHeight = height
         lastFontScale = host.windowLayout.fontScale
-        val maxWidth = host.dp(if (columns == 2) WindowLayoutSpec.DOUBLE_MAX else WindowLayoutSpec.SINGLE_MAX)
+        val maxWidth = host.dp(if (columns >= 2) WindowLayoutSpec.DOUBLE_MAX else WindowLayoutSpec.SINGLE_MAX)
         val contentWidth = width.coerceAtMost(maxWidth)
-        val gap = if (columns == 2) host.dp(WindowLayoutSpec.GAP) else 0
+        val gap = if (columns > 1) host.dp(WindowLayoutSpec.GAP) * (columns - 1) else 0
         panes.forEach { pane ->
             pane.getChildAt(0).setPadding(padding, host.dp(if (host.windowLayout.compact) 4 else 12), padding, host.dp(24))
             pane.measure(MeasureSpec.makeMeasureSpec((contentWidth - gap) / columns, MeasureSpec.EXACTLY), MeasureSpec.makeMeasureSpec(height, MeasureSpec.EXACTLY))
@@ -116,11 +116,14 @@ internal class ResponsivePage(
     }
 
     override fun onLayout(changed: Boolean, l: Int, t: Int, r: Int, b: Int) {
-        val gap = if (mode == 2) host.dp(WindowLayoutSpec.GAP) else 0
-        val total = panes.sumOf { it.measuredWidth } + gap
+        val gap = if (mode > 1) host.dp(WindowLayoutSpec.GAP) else 0
+        val total = panes.sumOf { it.measuredWidth } + gap * (panes.size - 1).coerceAtLeast(0)
         var x = (width - total) / 2
         val ordered = if (layoutDirection == LAYOUT_DIRECTION_RTL) panes.reversed() else panes
-        ordered.forEach { it.layout(x, 0, x + it.measuredWidth, height); x += it.measuredWidth + gap }
+        ordered.forEach {
+            it.layout(x, 0, x + it.measuredWidth, height)
+            x += it.measuredWidth + gap
+        }
     }
 
     override fun onDetachedFromWindow() {

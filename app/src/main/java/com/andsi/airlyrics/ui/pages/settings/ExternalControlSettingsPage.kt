@@ -40,6 +40,7 @@ import com.andsi.airlyrics.ui.components.scroll
 import com.andsi.airlyrics.ui.components.showAirDialog
 import com.andsi.airlyrics.ui.components.smallHint
 import com.andsi.airlyrics.ui.model.MainUiHost
+import com.andsi.airlyrics.ui.navigation.SettingsSubPage
 import com.andsi.airlyrics.ui.theme.applyAirThemeTint
 import com.andsi.airlyrics.ui.theme.colorAccent
 import com.andsi.airlyrics.ui.theme.colorAccentMint
@@ -63,6 +64,18 @@ internal fun createExternalControlSettingsPage(activity: MainUiHost): View = wit
             title = getString(R.string.ui_external_control_subpage_title),
             subtitle = getString(R.string.ui_external_control_subpage_desc)
         )
+    )
+
+    // 0. 社群擴充商店入口卡片
+    container.addView(
+        settingsCategoryCard(
+            title = "社群擴充商店",
+            subtitle = "瀏覽與安裝歌詞源、翻譯引擎、系統工具等開源社群外掛",
+            status = "探索外掛",
+            iconRes = R.drawable.ic_air_sync_alt
+        ) {
+            uiActions.openSettingsSubPage(SettingsSubPage.PLUGIN_STORE)
+        }
     )
 
     // 1. Intent 遠端控制 API 防護卡片

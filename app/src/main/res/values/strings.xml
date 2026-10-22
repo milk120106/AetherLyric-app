@@ -446,6 +446,15 @@ Word-timed TTML:
     <string name="provider_kugou">Kugou Music</string>
     <string name="provider_genius">Genius</string>
     <string name="provider_azlyrics">AZLyrics</string>
+    <string name="provider_migu">Migu Music</string>
+    <string name="provider_lyrics_ovh">Lyrics.ovh</string>
+    <string name="provider_megalobiz">Megalobiz</string>
+    <string name="provider_uta_net">Uta-Net</string>
+    <string name="provider_petit_lyrics">PetitLyrics</string>
+    <string name="provider_bilibili">Bilibili</string>
+    <string name="provider_community">AetherLyric Community</string>
+    <string name="provider_google_translate">Google Translate</string>
+    <string name="provider_custom_json">Custom JSON Plugin</string>
     <string name="ui_ai_audio_transcription_title">AI Audio Transcription</string>
     <string name="ui_ai_audio_transcription_desc">Select a local audio file and send to AetherLyric-server for AI lyrics generation</string>
     <string name="ui_select_audio_file">Select Audio File (MP3/FLAC)</string>

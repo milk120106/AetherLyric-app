@@ -32,13 +32,22 @@ internal fun Context.localizedPlainLyricsSourceList(
 internal fun plainLyricsSourceTitleRes(plainLyricsSearchSource: PlainLyricsSearchSource): Int =
     when (plainLyricsSearchSource) {
         PlainLyricsSearchSource.LOCAL_ONLY -> R.string.ui_local_only
+        PlainLyricsSearchSource.LRCLIB -> R.string.provider_lrclib
         PlainLyricsSearchSource.NETEASE -> R.string.ui_netease_cloud_music
         PlainLyricsSearchSource.QQ -> R.string.provider_qq
         PlainLyricsSearchSource.KUGOU -> R.string.provider_kugou
+        PlainLyricsSearchSource.MIGU -> R.string.provider_migu
         PlainLyricsSearchSource.GENIUS -> R.string.provider_genius
         PlainLyricsSearchSource.AZLYRICS -> R.string.provider_azlyrics
+        PlainLyricsSearchSource.LYRICS_OVH -> R.string.provider_lyrics_ovh
+        PlainLyricsSearchSource.MEGALOBIZ -> R.string.provider_megalobiz
+        PlainLyricsSearchSource.UTA_NET -> R.string.provider_uta_net
+        PlainLyricsSearchSource.PETIT_LYRICS -> R.string.provider_petit_lyrics
+        PlainLyricsSearchSource.BILIBILI -> R.string.provider_bilibili
+        PlainLyricsSearchSource.COMMUNITY -> R.string.provider_community
+        PlainLyricsSearchSource.GOOGLE_TRANSLATE -> R.string.provider_google_translate
+        PlainLyricsSearchSource.CUSTOM_JSON -> R.string.provider_custom_json
         PlainLyricsSearchSource.MUSIXMATCH -> R.string.provider_musixmatch
-        PlainLyricsSearchSource.LRCLIB -> R.string.provider_lrclib
         PlainLyricsSearchSource.SPICY -> if (com.andsi.airlyrics.BuildConfig.SPICY_CLIENT_KEY.isBlank()) R.string.provider_spicy_unavailable else R.string.provider_spicy
     }
 
@@ -46,13 +55,22 @@ internal fun plainLyricsSourceTitleRes(plainLyricsSearchSource: PlainLyricsSearc
 internal fun plainLyricsSourceCompactTitleRes(plainLyricsSearchSource: PlainLyricsSearchSource): Int =
     when (plainLyricsSearchSource) {
         PlainLyricsSearchSource.LOCAL_ONLY -> R.string.ui_local_only
+        PlainLyricsSearchSource.LRCLIB -> R.string.provider_lrclib
         PlainLyricsSearchSource.NETEASE -> R.string.provider_netease_compact
         PlainLyricsSearchSource.QQ -> R.string.provider_qq
         PlainLyricsSearchSource.KUGOU -> R.string.provider_kugou
+        PlainLyricsSearchSource.MIGU -> R.string.provider_migu
         PlainLyricsSearchSource.GENIUS -> R.string.provider_genius
         PlainLyricsSearchSource.AZLYRICS -> R.string.provider_azlyrics
+        PlainLyricsSearchSource.LYRICS_OVH -> R.string.provider_lyrics_ovh
+        PlainLyricsSearchSource.MEGALOBIZ -> R.string.provider_megalobiz
+        PlainLyricsSearchSource.UTA_NET -> R.string.provider_uta_net
+        PlainLyricsSearchSource.PETIT_LYRICS -> R.string.provider_petit_lyrics
+        PlainLyricsSearchSource.BILIBILI -> R.string.provider_bilibili
+        PlainLyricsSearchSource.COMMUNITY -> R.string.provider_community
+        PlainLyricsSearchSource.GOOGLE_TRANSLATE -> R.string.provider_google_translate
+        PlainLyricsSearchSource.CUSTOM_JSON -> R.string.provider_custom_json
         PlainLyricsSearchSource.MUSIXMATCH -> R.string.provider_musixmatch_compact
-        PlainLyricsSearchSource.LRCLIB -> R.string.provider_lrclib
         PlainLyricsSearchSource.SPICY -> R.string.provider_spicy_name
     }
 
