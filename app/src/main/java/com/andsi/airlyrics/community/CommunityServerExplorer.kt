@@ -150,13 +150,16 @@ object CommunityServerExplorer {
 
         // 嘗試同步遠端社群 servers.json
         runCatching {
-            val endpoint = "https://raw.githubusercontent.com/AetherLyric/community-servers/main/servers.json"
+            val endpoint = "https://raw.githubusercontent.com/milk120106/AetherLyric-community/main/data/servers.json"
             val conn = AetherLyricServerStore.openConnectionWithProxy(context, endpoint)
             conn.connectTimeout = 3000
             conn.readTimeout = 3000
             val jsonText = conn.getInputStream().bufferedReader().use { it.readText() }
-            val root = JSONObject(jsonText)
-            val arr = root.optJSONArray("servers")
+            val arr = if (jsonText.trimStart().startsWith("[")) {
+                JSONArray(jsonText)
+            } else {
+                JSONObject(jsonText).optJSONArray("servers")
+            }
             if (arr != null) {
                 for (i in 0 until arr.length()) {
                     val obj = arr.getJSONObject(i)
@@ -165,15 +168,17 @@ object CommunityServerExplorer {
                     if (capArr != null) {
                         for (c in 0 until capArr.length()) caps.add(capArr.getString(c))
                     }
+                    val trustKey = obj.optString("trust_status", obj.optString("trust_level", "unverified"))
+                    val maintainerStr = obj.optString("owner", obj.optString("maintainer", "社群貢獻者"))
                     val node = CommunityServer(
                         id = obj.optString("id", "remote_$i"),
                         name = obj.optString("name", "社群節點"),
                         url = obj.optString("url", ""),
-                        regionCode = obj.optString("region", "UN"),
-                        trustLevel = NodeTrustLevel.fromKey(obj.optString("trust_level")),
+                        regionCode = obj.optString("region", obj.optString("country", "UN")),
+                        trustLevel = NodeTrustLevel.fromKey(trustKey),
                         capabilities = caps,
                         description = obj.optString("description", ""),
-                        maintainer = obj.optString("maintainer", "社群貢獻者"),
+                        maintainer = maintainerStr,
                         latencyMs = obj.optInt("latency_ms", 100)
                     )
                     if (node.url.isNotBlank() && list.none { it.url == node.url }) {

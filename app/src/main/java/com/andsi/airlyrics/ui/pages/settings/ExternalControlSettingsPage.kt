@@ -66,15 +66,23 @@ internal fun createExternalControlSettingsPage(activity: MainUiHost): View = wit
         )
     )
 
-    // 0. 社群擴充商店入口卡片
+    // 0. 探索公開擴充入口卡片
     container.addView(
         settingsCategoryCard(
-            title = "社群擴充商店",
+            title = "探索公開擴充",
             subtitle = "瀏覽與安裝歌詞源、翻譯引擎、系統工具等開源社群外掛",
             status = "探索外掛",
             iconRes = R.drawable.ic_air_sync_alt
         ) {
             uiActions.openSettingsSubPage(SettingsSubPage.PLUGIN_STORE)
+        }
+    )
+    container.addView(
+        TextView(activity).apply {
+            text = "本擴充採用 MIT 開源授權，請確認您信任該來源。"
+            textSize = AirUiTokens.TextSize.Tiny
+            setTextColor(colorTextMuted)
+            setPadding(dp(AirUiTokens.Space.CardH), 0, dp(AirUiTokens.Space.CardH), dp(AirUiTokens.Space.Sm))
         }
     )
 

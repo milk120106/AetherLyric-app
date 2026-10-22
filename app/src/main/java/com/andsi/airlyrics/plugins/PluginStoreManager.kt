@@ -5,6 +5,9 @@ import com.andsi.airlyrics.community.NodeTrustLevel
 import com.andsi.airlyrics.core.prefs.prefs
 import com.andsi.airlyrics.lyrics.providers.CustomJsonPluginStore
 import com.andsi.airlyrics.lyrics.providers.CustomJsonPlugin
+import com.andsi.airlyrics.settings.store.AetherLyricServerStore
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -48,10 +51,30 @@ data class StorePluginItem(
  * 負責外掛市集目錄管理、違規外掛自動禁用比對與啟動單一合併彈窗提示。
  */
 object PluginStoreManager {
+    const val COMMUNITY_PLUGINS_URL = "https://raw.githubusercontent.com/milk120106/AetherLyric-community/main/data/plugins.json"
     private const val PREFS_NAME = "plugin_store_prefs"
     private const val KEY_PENDING_DISABLED_ALERTS = "pending_disabled_alerts"
+    private const val KEY_CACHED_REMOTE_PLUGINS = "cached_remote_plugins_json"
 
     private fun store(context: Context) = prefs(context, PREFS_NAME)
+
+    /**
+     * 從遠端社群倉庫非同步同步 plugins.json。
+     */
+    suspend fun syncRemoteStorePlugins(context: Context): Boolean = withContext(Dispatchers.IO) {
+        runCatching {
+            val conn = AetherLyricServerStore.openConnectionWithProxy(context, COMMUNITY_PLUGINS_URL)
+            conn.connectTimeout = 4000
+            conn.readTimeout = 4000
+            val jsonText = conn.getInputStream().bufferedReader().use { it.readText() }
+            if (jsonText.isNotBlank()) {
+                store(context).setString(KEY_CACHED_REMOTE_PLUGINS, jsonText)
+                true
+            } else {
+                false
+            }
+        }.getOrDefault(false)
+    }
 
     /**
      * 內建與社群同步外掛庫目錄。
@@ -59,6 +82,44 @@ object PluginStoreManager {
     fun getStorePlugins(context: Context): List<StorePluginItem> {
         val installedPlugins = CustomJsonPluginStore.getPlugins(context)
         val installedMap = installedPlugins.associateBy { it.id }
+
+        val remoteList = mutableListOf<StorePluginItem>()
+        val cachedJson = store(context).getString(KEY_CACHED_REMOTE_PLUGINS, "").orEmpty()
+        if (cachedJson.isNotBlank()) {
+            runCatching {
+                val arr = if (cachedJson.trimStart().startsWith("[")) {
+                    JSONArray(cachedJson)
+                } else {
+                    JSONObject(cachedJson).optJSONArray("plugins")
+                }
+                if (arr != null) {
+                    for (i in 0 until arr.length()) {
+                        val obj = arr.getJSONObject(i)
+                        val id = obj.optString("id", "")
+                        val name = obj.optString("name", "")
+                        if (id.isNotBlank() && name.isNotBlank()) {
+                            remoteList.add(
+                                StorePluginItem(
+                                    id = id,
+                                    name = name,
+                                    version = obj.optString("version", "1.0.0"),
+                                    author = obj.optString("author", "社群貢獻者"),
+                                    maintainerBadge = when (obj.optString("maintainer_level", "contributor")) {
+                                        "official" -> "官方維護"
+                                        "maintainer" -> "認證維護者"
+                                        else -> "社群貢獻者"
+                                    },
+                                    category = PluginCategory.fromKey(obj.optString("category")),
+                                    trustLevel = NodeTrustLevel.fromKey(obj.optString("trust_status")),
+                                    description = obj.optString("description", ""),
+                                    downloadUrl = obj.optString("source_url", obj.optString("download_url", ""))
+                                )
+                            )
+                        }
+                    }
+                }
+            }
+        }
 
         val catalog = listOf(
             // 歌詞源 (lyrics_source)
@@ -191,7 +252,9 @@ object PluginStoreManager {
             )
         )
 
-        return catalog.map { item ->
+        val mergedCatalog = (catalog + remoteList).distinctBy { it.id }
+
+        return mergedCatalog.map { item ->
             val installed = installedMap[item.id]
             if (installed != null) {
                 item.copy(isInstalled = true, isEnabled = installed.enabled)

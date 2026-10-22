@@ -177,7 +177,7 @@ internal fun createPluginStorePage(activity: MainUiHost): View = with(activity) 
                     val installBtn = actionButton(activity, "取得並安裝") {
                         try {
                             PluginStoreManager.installStorePlugin(activity, item)
-                            Toast.makeText(activity, "外掛「${item.name}」安裝成功！", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(activity, "外掛「${item.name}」安裝成功！\n本擴充採用 MIT 開源授權，請確認您信任該來源。", Toast.LENGTH_LONG).show()
                             renderPlugins()
                         } catch (e: Exception) {
                             Toast.makeText(activity, "安裝失敗：${e.message}", Toast.LENGTH_LONG).show()
@@ -253,6 +253,18 @@ internal fun createPluginStorePage(activity: MainUiHost): View = with(activity) 
 
     renderPlugins()
     container.addView(listContainer)
+
+    container.addView(TextView(activity).apply {
+        text = "本擴充採用 MIT 開源授權，請確認您信任該來源。"
+        textSize = AirUiTokens.TextSize.BodySmall
+        setTextColor(colorTextMuted)
+        setPadding(dp(AirUiTokens.Space.CardH), dp(AirUiTokens.Space.Sm), dp(AirUiTokens.Space.CardH), dp(AirUiTokens.Space.Sm))
+    })
+
+    Thread {
+        val ok = kotlinx.coroutines.runBlocking { PluginStoreManager.syncRemoteStorePlugins(activity) }
+        if (ok) container.post { renderPlugins() }
+    }.start()
 
     return scroll(activity, container, maxWidthDp = 1200)
 }
